@@ -27,7 +27,8 @@ import {
   Link as LinkIcon,
   Twitter,
   Facebook,
-  Menu
+  Menu,
+  Activity
 } from 'lucide-react';
 
 const Sidebar = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => (
@@ -73,19 +74,28 @@ const Sidebar = ({ className = "", onClose }: { className?: string, onClose?: ()
   </aside>
 );
 
-const Header = ({ onMenuClick }: { onMenuClick: () => void }) => {
+const Header = ({ onLeftMenuClick, onRightMenuClick }: { onLeftMenuClick: () => void, onRightMenuClick: () => void }) => {
   return (
-    <header className="sticky top-0 right-0 w-full h-14 flex justify-between lg:justify-end items-center px-4 md:px-10 z-40 glass-nav border-b border-outline/5">
-      <button className="lg:hidden text-on-surface-variant hover:text-on-surface" onClick={onMenuClick}>
-        <Menu size={24} />
-      </button>
-      <div className="relative flex items-center group">
-        <Search className="absolute left-3 text-on-surface-variant/50" size={18} strokeWidth={1.5} />
-        <input 
-          className="bg-surface-container-low/40 border-none rounded-md py-1.5 pl-9 pr-4 text-[9px] font-headline tracking-[0.1em] text-on-surface focus:ring-1 focus:ring-primary/30 focus:outline-none w-40 md:w-52 transition-all placeholder:text-on-surface-variant/40" 
-          placeholder="SEARCH PROJECTS..." 
-          type="text" 
-        />
+    <header className="sticky top-0 right-0 w-full h-14 flex items-center justify-between px-4 md:px-10 z-40 glass-nav border-b border-outline/5">
+      <div className="flex-1 flex justify-start">
+        <button className="lg:hidden text-on-surface-variant hover:text-on-surface" onClick={onLeftMenuClick}>
+          <Menu size={24} />
+        </button>
+      </div>
+      <div className="flex-1 flex justify-center xl:justify-end">
+        <div className="relative flex items-center group">
+          <Search className="absolute left-3 text-on-surface-variant/50" size={18} strokeWidth={1.5} />
+          <input 
+            className="bg-surface-container-low/40 border-none rounded-md py-1.5 pl-9 pr-4 text-[9px] font-headline tracking-[0.1em] text-on-surface focus:ring-1 focus:ring-primary/30 focus:outline-none w-40 md:w-52 transition-all placeholder:text-on-surface-variant/40" 
+            placeholder="SEARCH PROJECTS..." 
+            type="text" 
+          />
+        </div>
+      </div>
+      <div className="flex-1 flex justify-end">
+        <button className="xl:hidden text-on-surface-variant hover:text-on-surface" onClick={onRightMenuClick}>
+          <Activity size={24} />
+        </button>
       </div>
     </header>
   );
@@ -481,10 +491,10 @@ const BrainSimulation = () => {
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '600ms' }}></span>
         </div>
       </div>
-      <div className="relative w-full aspect-square bg-black/40 rounded-2xl border border-outline/10 overflow-hidden flex items-center justify-center group">
+      <div className="relative w-full aspect-square bg-[#050505] rounded-2xl border border-outline/10 overflow-hidden flex items-center justify-center group">
         {/* Brain Image Background */}
         <div 
-          className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-screen transition-transform duration-700 group-hover:scale-105"
+          className="absolute inset-0 bg-cover bg-center opacity-50 mix-blend-screen transition-transform duration-700 group-hover:scale-105"
           style={{ backgroundImage: `url('https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=800&auto=format&fit=crop')` }}
         ></div>
         
@@ -492,36 +502,42 @@ const BrainSimulation = () => {
         <motion.div 
           animate={{ opacity: [0.3, 0.8, 0.3], scale: [1, 1.2, 1] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-[25%] right-[25%] w-20 h-20 bg-error/60 rounded-full blur-2xl mix-blend-screen"
+          className="absolute top-[20%] right-[20%] w-24 h-24 bg-error/70 rounded-full blur-[30px] mix-blend-screen"
         ></motion.div>
         
         <motion.div 
           animate={{ opacity: [0.2, 0.9, 0.2], scale: [0.9, 1.3, 0.9] }}
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute top-[45%] right-[15%] w-24 h-24 bg-tertiary/50 rounded-full blur-2xl mix-blend-screen"
+          className="absolute top-[35%] right-[10%] w-28 h-28 bg-yellow-500/60 rounded-full blur-[30px] mix-blend-screen"
         ></motion.div>
 
         <motion.div 
           animate={{ opacity: [0.4, 0.7, 0.4], scale: [1, 1.1, 1] }}
           transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-          className="absolute top-[35%] left-[30%] w-16 h-16 bg-primary/40 rounded-full blur-2xl mix-blend-screen"
+          className="absolute top-[25%] right-[35%] w-16 h-16 bg-orange-500/50 rounded-full blur-[20px] mix-blend-screen"
         ></motion.div>
         
         {/* Overlay Text */}
-        <div className="relative z-10 text-center pointer-events-none">
-           <h4 className="font-headline text-4xl font-bold tracking-widest text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">TRIBE v2</h4>
-           <div className="flex items-center justify-center gap-2 mt-3">
-             <div className="h-[1px] w-8 bg-white/30"></div>
-             <p className="text-[8px] uppercase tracking-[0.4em] text-white/80 font-medium">Active Simulation</p>
-             <div className="h-[1px] w-8 bg-white/30"></div>
-           </div>
+        <div className="relative z-10 text-center pointer-events-none flex flex-col items-center justify-center w-full h-full">
+           <h4 className="font-headline text-5xl font-medium tracking-tight text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.3)]">TRIBE v2</h4>
+        </div>
+
+        {/* Side Texts */}
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 flex flex-col items-end pr-4 text-[9px] uppercase tracking-[0.3em] text-white/50 font-bold leading-relaxed">
+          <span>Simulation</span>
+          <span>Activity</span>
+        </div>
+        
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 flex flex-col items-start pl-4 text-[9px] uppercase tracking-[0.3em] text-white/50 font-bold leading-relaxed">
+          <span>Active</span>
+          <span>Cortex</span>
         </div>
 
         {/* Scanning line effect */}
         <motion.div 
           animate={{ top: ['-10%', '110%'] }}
           transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          className="absolute left-0 right-0 h-[2px] bg-tertiary/30 blur-[1px] z-20"
+          className="absolute left-0 right-0 h-[2px] bg-tertiary/20 blur-[1px] z-20"
         ></motion.div>
       </div>
     </section>
@@ -530,8 +546,15 @@ const BrainSimulation = () => {
 
 
 
-const AnalyticsPanel = ({ className = "" }: { className?: string }) => (
+const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => (
   <aside className={`overflow-y-auto custom-scrollbar glass-panel flex flex-col gap-12 ${className}`}>
+    {onClose && (
+      <div className="flex justify-end xl:hidden mb-[-2rem]">
+        <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface p-2">
+          <X size={24} />
+        </button>
+      </div>
+    )}
     <section>
       <div className="flex items-center gap-2 mb-6">
         <BadgeCheck className="text-tertiary" size={18} fill="currentColor" stroke="black" />
@@ -603,27 +626,47 @@ const AnalyticsPanel = ({ className = "" }: { className?: string }) => (
 );
 
 export default function App() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLeftMenuOpen, setIsLeftMenuOpen] = useState(false);
+  const [isRightMenuOpen, setIsRightMenuOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-on-surface selection:bg-primary/30 selection:text-on-surface antialiased">
       {/* Desktop Sidebar */}
       <Sidebar className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" />
       
-      {/* Mobile Sidebar Overlay */}
+      {/* Left Mobile Sidebar Overlay */}
       <AnimatePresence>
-        {isMobileMenuOpen && (
+        {isLeftMenuOpen && (
           <>
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 bg-black/60 z-[60] lg:hidden"
-              onClick={() => setIsMobileMenuOpen(false)}
+              onClick={() => setIsLeftMenuOpen(false)}
             />
             <motion.div
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               className="fixed inset-y-0 left-0 z-[70] w-64 bg-background border-r border-outline/10 shadow-2xl lg:hidden"
             >
-              <Sidebar className="h-full w-full border-none" onClose={() => setIsMobileMenuOpen(false)} />
+              <Sidebar className="h-full w-full border-none" onClose={() => setIsLeftMenuOpen(false)} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Right Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isRightMenuOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-[60] xl:hidden"
+              onClick={() => setIsRightMenuOpen(false)}
+            />
+            <motion.div
+              initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+              className="fixed inset-y-0 right-0 z-[70] w-80 sm:w-96 bg-background border-l border-outline/10 shadow-2xl xl:hidden"
+            >
+              <AnalyticsPanel className="h-full w-full border-none p-6 sm:p-10" onClose={() => setIsRightMenuOpen(false)} />
             </motion.div>
           </>
         )}
@@ -631,15 +674,11 @@ export default function App() {
 
       <main className="lg:ml-60 flex flex-col xl:flex-row h-screen w-full">
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-background w-full">
-          <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
+          <Header onLeftMenuClick={() => setIsLeftMenuOpen(true)} onRightMenuClick={() => setIsRightMenuOpen(true)} />
           <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-10 md:space-y-16">
             <Hero />
             <Controls />
             <ActiveVariants />
-            {/* Analytics Panel for Mobile/Tablet */}
-            <div className="xl:hidden mt-10">
-              <AnalyticsPanel className="w-full border-t border-outline/5 pt-10 px-0" />
-            </div>
           </div>
         </div>
         {/* Analytics Panel for Desktop */}
