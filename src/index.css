@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+
+  --color-background: #050a14;
+  --color-surface: #050a14;
+  --color-surface-dim: #060e20;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-low: #091328;
+  --color-surface-container: #0f1930;
+  --color-surface-container-high: #141f38;
+  --color-surface-container-highest: #192540;
+  --color-surface-variant: #121d33;
+  --color-surface-bright: #1f2b49;
+
+  --color-primary: #cc97ff;
+  --color-on-primary: #47007c;
+  --color-primary-container: #c284ff;
+  --color-on-primary-container: #360061;
+
+  --color-secondary: #699cff;
+  --color-on-secondary: #001e4a;
+  --color-secondary-container: #005ac2;
+  --color-on-secondary-container: #f7f7ff;
+
+  --color-tertiary: #e7ffc4;
+  --color-on-tertiary: #406800;
+  --color-tertiary-container: #b1fe4d;
+  --color-on-tertiary-container: #3a5f00;
+
+  --color-on-surface: #dee5ff;
+  --color-on-surface-variant: #8a94ad;
+  --color-outline: #40485d;
+  --color-outline-variant: #40485d;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-body);
+}
+
+.font-headline { font-family: var(--font-headline); }
+.glass-panel { background: rgba(18, 29, 51, 0.4); backdrop-filter: blur(24px); }
+.glass-nav { background: rgba(5, 10, 20, 0.7); backdrop-filter: blur(16px); }
+.text-glow { text-shadow: 0 0 15px rgba(204, 151, 255, 0.3); }
+.custom-scrollbar::-webkit-scrollbar { width: 3px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(109, 117, 140, 0.2); border-radius: 10px; }
+.variant-card { border: 1px solid rgba(109, 117, 140, 0.1); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.variant-card:hover { border-color: rgba(204, 151, 255, 0.3); background: rgba(25, 37, 64, 0.4); }
