@@ -26,14 +26,22 @@ import {
   X,
   Link as LinkIcon,
   Twitter,
-  Facebook
+  Facebook,
+  Menu
 } from 'lucide-react';
 
-const Sidebar = () => (
-  <aside className="fixed left-0 top-0 h-full w-60 flex flex-col py-10 px-6 glass-panel border-r border-outline/10 z-50">
-    <div className="mb-12">
-      <h1 className="text-lg font-headline font-bold tracking-tight text-[#dee5ff]">Oumi Audio</h1>
-      <p className="font-headline font-normal text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/70">Creative Intelligence</p>
+const Sidebar = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => (
+  <aside className={`flex flex-col py-10 px-6 glass-panel z-50 ${className}`}>
+    <div className="mb-12 flex justify-between items-start">
+      <div>
+        <h1 className="text-lg font-headline font-bold tracking-tight text-[#dee5ff]">Oumi Audio</h1>
+        <p className="font-headline font-normal text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/70">Creative Intelligence</p>
+      </div>
+      {onClose && (
+        <button onClick={onClose} className="lg:hidden text-on-surface-variant hover:text-on-surface">
+          <X size={24} />
+        </button>
+      )}
     </div>
     <button className="mb-10 w-full py-2.5 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary font-headline font-medium text-[11px] uppercase tracking-widest hover:bg-primary/20 transition-all duration-300">
       New Project
@@ -65,13 +73,16 @@ const Sidebar = () => (
   </aside>
 );
 
-const Header = () => {
+const Header = ({ onMenuClick }: { onMenuClick: () => void }) => {
   return (
-    <header className="sticky top-0 right-0 w-full h-14 flex justify-end items-center px-10 z-40 glass-nav border-b border-outline/5">
+    <header className="sticky top-0 right-0 w-full h-14 flex justify-between lg:justify-end items-center px-4 md:px-10 z-40 glass-nav border-b border-outline/5">
+      <button className="lg:hidden text-on-surface-variant hover:text-on-surface" onClick={onMenuClick}>
+        <Menu size={24} />
+      </button>
       <div className="relative flex items-center group">
         <Search className="absolute left-3 text-on-surface-variant/50" size={18} strokeWidth={1.5} />
         <input 
-          className="bg-surface-container-low/40 border-none rounded-md py-1.5 pl-9 pr-4 text-[9px] font-headline tracking-[0.1em] text-on-surface focus:ring-1 focus:ring-primary/30 focus:outline-none w-52 transition-all placeholder:text-on-surface-variant/40" 
+          className="bg-surface-container-low/40 border-none rounded-md py-1.5 pl-9 pr-4 text-[9px] font-headline tracking-[0.1em] text-on-surface focus:ring-1 focus:ring-primary/30 focus:outline-none w-40 md:w-52 transition-all placeholder:text-on-surface-variant/40" 
           placeholder="SEARCH PROJECTS..." 
           type="text" 
         />
@@ -519,8 +530,8 @@ const BrainSimulation = () => {
 
 
 
-const AnalyticsPanel = () => (
-  <aside className="w-96 overflow-y-auto custom-scrollbar glass-panel border-l border-outline/5 p-10 flex flex-col gap-12">
+const AnalyticsPanel = ({ className = "" }: { className?: string }) => (
+  <aside className={`overflow-y-auto custom-scrollbar glass-panel flex flex-col gap-12 ${className}`}>
     <section>
       <div className="flex items-center gap-2 mb-6">
         <BadgeCheck className="text-tertiary" size={18} fill="currentColor" stroke="black" />
@@ -592,19 +603,47 @@ const AnalyticsPanel = () => (
 );
 
 export default function App() {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background text-on-surface selection:bg-primary/30 selection:text-on-surface antialiased">
-      <Sidebar />
-      <main className="ml-60 flex flex-row h-screen w-full">
-        <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
-          <Header />
-          <div className="p-10 max-w-7xl mx-auto space-y-16">
+      {/* Desktop Sidebar */}
+      <Sidebar className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" />
+      
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 z-[60] lg:hidden"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            <motion.div
+              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
+              className="fixed inset-y-0 left-0 z-[70] w-64 bg-background border-r border-outline/10 shadow-2xl lg:hidden"
+            >
+              <Sidebar className="h-full w-full border-none" onClose={() => setIsMobileMenuOpen(false)} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <main className="lg:ml-60 flex flex-col xl:flex-row h-screen w-full">
+        <div className="flex-1 overflow-y-auto custom-scrollbar bg-background w-full">
+          <Header onMenuClick={() => setIsMobileMenuOpen(true)} />
+          <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-10 md:space-y-16">
             <Hero />
             <Controls />
             <ActiveVariants />
+            {/* Analytics Panel for Mobile/Tablet */}
+            <div className="xl:hidden mt-10">
+              <AnalyticsPanel className="w-full border-t border-outline/5 pt-10 px-0" />
+            </div>
           </div>
         </div>
-        <AnalyticsPanel />
+        {/* Analytics Panel for Desktop */}
+        <AnalyticsPanel className="hidden xl:flex w-96 border-l border-outline/5 p-10" />
       </main>
     </div>
   );
