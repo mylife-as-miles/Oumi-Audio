@@ -459,6 +459,66 @@ const ActiveVariants = () => {
   );
 };
 
+const BrainSimulation = () => {
+  return (
+    <section className="mb-2">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Neural Stimulus</h3>
+        <div className="flex gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-error animate-pulse"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse" style={{ animationDelay: '300ms' }}></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" style={{ animationDelay: '600ms' }}></span>
+        </div>
+      </div>
+      <div className="relative w-full aspect-square bg-black/40 rounded-2xl border border-outline/10 overflow-hidden flex items-center justify-center group">
+        {/* Brain Image Background */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-screen transition-transform duration-700 group-hover:scale-105"
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1559757175-5700dde675bc?q=80&w=800&auto=format&fit=crop')` }}
+        ></div>
+        
+        {/* Animated glowing regions representing brain activity */}
+        <motion.div 
+          animate={{ opacity: [0.3, 0.8, 0.3], scale: [1, 1.2, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[25%] right-[25%] w-20 h-20 bg-error/60 rounded-full blur-2xl mix-blend-screen"
+        ></motion.div>
+        
+        <motion.div 
+          animate={{ opacity: [0.2, 0.9, 0.2], scale: [0.9, 1.3, 0.9] }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute top-[45%] right-[15%] w-24 h-24 bg-tertiary/50 rounded-full blur-2xl mix-blend-screen"
+        ></motion.div>
+
+        <motion.div 
+          animate={{ opacity: [0.4, 0.7, 0.4], scale: [1, 1.1, 1] }}
+          transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+          className="absolute top-[35%] left-[30%] w-16 h-16 bg-primary/40 rounded-full blur-2xl mix-blend-screen"
+        ></motion.div>
+        
+        {/* Overlay Text */}
+        <div className="relative z-10 text-center pointer-events-none">
+           <h4 className="font-headline text-4xl font-bold tracking-widest text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">TRIBE v2</h4>
+           <div className="flex items-center justify-center gap-2 mt-3">
+             <div className="h-[1px] w-8 bg-white/30"></div>
+             <p className="text-[8px] uppercase tracking-[0.4em] text-white/80 font-medium">Active Simulation</p>
+             <div className="h-[1px] w-8 bg-white/30"></div>
+           </div>
+        </div>
+
+        {/* Scanning line effect */}
+        <motion.div 
+          animate={{ top: ['-10%', '110%'] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+          className="absolute left-0 right-0 h-[2px] bg-tertiary/30 blur-[1px] z-20"
+        ></motion.div>
+      </div>
+    </section>
+  );
+};
+
+
+
 const AnalyticsPanel = () => (
   <aside className="w-96 overflow-y-auto custom-scrollbar glass-panel border-l border-outline/5 p-10 flex flex-col gap-12">
     <section>
@@ -485,6 +545,8 @@ const AnalyticsPanel = () => (
         </div>
       </div>
     </section>
+
+    <BrainSimulation />
 
     <section className="flex-1 flex flex-col">
       <div className="flex justify-between items-center mb-10">
