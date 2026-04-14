@@ -211,18 +211,31 @@ const Controls = () => (
   </section>
 );
 
-const VariantCard = ({ variant, onDelete }: { variant: any, onDelete: (id: string) => void }) => {
+const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { variant: any, rank: number, isSelected: boolean, onToggleSelect: (id: string) => void, onDelete: (id: string) => void }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   return (
-    <div className="variant-card p-6 rounded-2xl bg-surface-container-low/20 flex flex-col gap-6 transition-all duration-300">
+    <div className={`p-6 rounded-2xl flex flex-col gap-5 transition-all duration-300 border ${isSelected ? 'bg-primary/5 border-primary/30 shadow-[0_0_30px_rgba(var(--color-primary),0.15)]' : 'bg-surface-container-low/20 border-outline/10 hover:border-primary/30 hover:bg-surface-bright/40'}`}>
       <div className="flex justify-between items-start cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-        <div>
-          <span className={`text-[9px] ${variant.typeColor} uppercase tracking-widest font-bold mb-1 block`}>{variant.type}</span>
-          <h4 className="font-headline font-semibold text-base tracking-tight text-on-surface">{variant.name}</h4>
-          <p className="text-[9px] text-on-surface-variant/50 uppercase tracking-widest mt-0.5">{variant.timeAgo} • {variant.sampleRate} {variant.quality}</p>
+        <div className="flex items-start gap-4">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(variant.id); }}
+            className={`mt-1 w-5 h-5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-primary border-primary text-on-primary' : 'border-outline/30 text-transparent hover:border-primary/50'}`}
+          >
+            <BadgeCheck size={14} className={isSelected ? "opacity-100" : "opacity-0"} />
+          </button>
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${rank === 1 ? 'bg-tertiary/20 text-tertiary' : rank === 2 ? 'bg-secondary/20 text-secondary' : 'bg-surface-variant text-on-surface-variant'}`}>
+                #{rank}
+              </span>
+              <span className={`text-[9px] ${variant.typeColor} uppercase tracking-widest font-bold block`}>{variant.type}</span>
+            </div>
+            <h4 className="font-headline font-semibold text-base tracking-tight text-on-surface">{variant.name}</h4>
+            <p className="text-[9px] text-on-surface-variant/50 uppercase tracking-widest mt-1">{variant.timeAgo} • {variant.sampleRate} {variant.quality}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative group flex items-center justify-center">
@@ -246,10 +259,17 @@ const VariantCard = ({ variant, onDelete }: { variant: any, onDelete: (id: strin
         </div>
       </div>
       
-      <div className="h-14 w-full bg-black/20 rounded-lg flex items-center px-4">
+      <div className="flex gap-2">
+        <div className="bg-surface-container/40 px-2 py-1 rounded text-[9px] font-bold text-tertiary border border-outline/5">Score {variant.score}</div>
+        <div className="bg-surface-container/40 px-2 py-1 rounded text-[9px] font-bold text-secondary border border-outline/5">Mem {variant.memoryRetention}</div>
+        <div className="bg-surface-container/40 px-2 py-1 rounded text-[9px] font-bold text-primary border border-outline/5">Aff {variant.brandAffinity}</div>
+      </div>
+
+      <div className="h-12 w-full bg-black/20 rounded-lg flex items-center px-4 relative overflow-hidden group">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
         <div className="flex items-end gap-[3px] h-6 w-full">
            {[40, 70, 90, 50, 100, 60, 40, 80, 95, 50].map((h, i) => (
-             <div key={i} className={`flex-1 ${variant.bgType} ${h < 80 ? '/40' : ''} rounded-full`} style={{ height: `${h}%` }}></div>
+             <div key={i} className={`flex-1 ${variant.bgType} ${h < 80 ? '/40' : ''} rounded-full transition-all duration-500 hover:h-full`} style={{ height: `${h}%` }}></div>
            ))}
         </div>
       </div>
@@ -396,11 +416,19 @@ const initialVariants = [
 
 const ActiveVariants = () => {
   const [variants, setVariants] = useState(initialVariants);
-  const [sortBy, setSortBy] = useState('date');
+  const [sortBy, setSortBy] = useState('score');
   const [filterQuality, setFilterQuality] = useState('All');
+  const [selectedVariants, setSelectedVariants] = useState<string[]>(['v1']); // Default select the top one
 
   const handleDelete = (id: string) => {
     setVariants(variants.filter(v => v.id !== id));
+    setSelectedVariants(selectedVariants.filter(vId => vId !== id));
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedVariants(prev => 
+      prev.includes(id) ? prev.filter(vId => vId !== id) : [...prev, id]
+    );
   };
 
   const filteredAndSortedVariants = variants
@@ -457,7 +485,7 @@ const ActiveVariants = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <AnimatePresence>
-          {filteredAndSortedVariants.map(variant => (
+          {filteredAndSortedVariants.map((variant, index) => (
             <motion.div
               key={variant.id}
               layout
@@ -466,7 +494,13 @@ const ActiveVariants = () => {
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.2 }}
             >
-              <VariantCard variant={variant} onDelete={handleDelete} />
+              <VariantCard 
+                variant={variant} 
+                rank={index + 1}
+                isSelected={selectedVariants.includes(variant.id)}
+                onToggleSelect={handleToggleSelect}
+                onDelete={handleDelete} 
+              />
             </motion.div>
           ))}
         </AnimatePresence>
