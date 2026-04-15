@@ -206,10 +206,11 @@ const Hero = () => {
   );
 };
 
-const Controls = () => {
+const Controls = ({ onGenerate }: { onGenerate: () => void }) => {
   const { showToast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleSearch = (query?: string) => {
     const q = query || searchQuery;
@@ -220,6 +221,12 @@ const Controls = () => {
       setIsSearching(false);
       showToast(`Search completed for "${q}"`);
     }, 1500);
+  };
+
+  const handleGenerateClick = async () => {
+    setIsGenerating(true);
+    await onGenerate();
+    setIsGenerating(false);
   };
 
   return (
@@ -293,7 +300,17 @@ const Controls = () => {
         </div>
       </div>
 
-      <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-8 bg-surface-container-low/20 p-6 rounded-2xl border border-outline/5">
+      <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-8 bg-surface-container-low/20 p-6 rounded-2xl border border-outline/5 relative">
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-10 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-300">
+          <button 
+            onClick={handleGenerateClick}
+            disabled={isGenerating}
+            className="bg-primary text-on-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
+          >
+            {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {isGenerating ? 'Generating...' : 'Generate Audio Variants'}
+          </button>
+        </div>
         <div className="space-y-4">
           <label className="text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/80 font-bold flex justify-between">
             AI Intensity <span className="text-tertiary font-medium">84%</span>
@@ -532,8 +549,7 @@ const initialVariants = [
   }
 ];
 
-const ActiveVariants = () => {
-  const [variants, setVariants] = useState(initialVariants);
+const ActiveVariants = ({ variants, setVariants }: { variants: any[], setVariants: React.Dispatch<React.SetStateAction<any[]>> }) => {
   const [sortBy, setSortBy] = useState('score');
   const [filterQuality, setFilterQuality] = useState('All');
   const [selectedVariants, setSelectedVariants] = useState<string[]>(['v1']); // Default select the top one
@@ -1129,6 +1145,7 @@ export default function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<any>(null);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [variants, setVariants] = useState<any[]>(initialVariants);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1191,6 +1208,53 @@ export default function App() {
     }
   };
 
+  const handleGenerateVariants = async () => {
+    if (!currentProject) {
+      showToast("Please create a project first.");
+      return;
+    }
+    
+    showToast("Generating creative directions and audio...");
+    try {
+      const response = await fetch('/api/generate-variants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: currentProject.projectId,
+          goal: currentProject.goal || "Create an engaging audio ad"
+        })
+      });
+
+      if (!response.ok) throw new Error("Generation failed");
+      
+      const data = await response.json();
+      
+      const newVariant = {
+        id: `v_${Date.now()}`,
+        name: data.title || 'Generated Variant',
+        type: 'AI Generated',
+        typeColor: 'text-tertiary',
+        bgType: 'bg-tertiary',
+        timeAgo: 'Just now',
+        timestamp: Date.now(),
+        quality: 'High',
+        sampleRate: '48kHz',
+        duration: '0:15.00',
+        score: Math.floor(Math.random() * 15) + 85, // 85-99
+        memoryRetention: '+12.4%',
+        brandAffinity: '+4.1%',
+        audioUrl: data.audioUrl,
+        script: data.script
+      };
+
+      setVariants(prev => [newVariant, ...prev]);
+      showToast("Audio variant generated successfully!");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to generate audio variant.");
+    }
+  };
+
   return (
     <ToastContext.Provider value={{ showToast }}>
     <div className="flex h-screen overflow-hidden bg-background text-on-surface selection:bg-primary/30 selection:text-on-surface antialiased">
@@ -1244,8 +1308,8 @@ export default function App() {
               <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
             </div>
             <Hero />
-            <Controls />
-            <ActiveVariants />
+            <Controls onGenerate={handleGenerateVariants} />
+            <ActiveVariants variants={variants} setVariants={setVariants} />
           </div>
         </div>
         {/* Analytics Panel for Desktop */}
