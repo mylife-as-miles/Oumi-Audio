@@ -1270,17 +1270,19 @@ export default function App() {
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Ingestion failed');
-      
       const result = await response.json();
-      console.log('Ingestion result:', result);
       
+      if (!response.ok) {
+        throw new Error(result.error || 'Ingestion failed');
+      }
+      
+      console.log('Ingestion result:', result);
       setIsIngesting(false);
       showToast("Creative inputs ingested and indexed.");
     } catch (error) {
       console.error(error);
       setIsIngesting(false);
-      showToast("Ingestion completed with warnings (mocked).");
+      showToast(`Ingestion failed: ${(error as Error).message}`);
     }
   };
 

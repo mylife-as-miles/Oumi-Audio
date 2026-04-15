@@ -224,88 +224,110 @@ app.post("/api/generate-variants", async (req, res) => {
 });
 
 app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
+  const { projectId, projectName } = req.body;
+  console.log(`[Ingestion] Starting for Project: ${projectName} (${projectId})`);
+
   try {
-    const { projectId, projectName, campaignType, goal } = req.body;
     const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      console.log("[Ingestion] No files provided in request.");
+      return res.status(400).json({ error: "No files provided for ingestion." });
+    }
+
+    if (!process.env.TURBOPUFFER_API_KEY) {
+      console.error("[Ingestion] CRITICAL: TURBOPUFFER_API_KEY is missing from environment.");
+      return res.status(500).json({ 
+        error: "Database configuration missing (TURBOPUFFER_API_KEY).",
+        details: "Please ensure your vector database keys are set in the Vercel dashboard."
+      });
+    }
 
     const tpuf = new Turbopuffer({
-      apiKey: process.env.TURBOPUFFER_API_KEY || "mock-key",
+      apiKey: process.env.TURBOPUFFER_API_KEY,
     });
 
     let ai: GoogleGenAI | null = null;
     if (process.env.GEMINI_API_KEY) {
       ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    } else {
+      console.warn("[Ingestion] GEMINI_API_KEY missing. Embeddings will use fallback random vectors.");
     }
 
     const extractedChunks: { text: string; source: string }[] = [];
 
     for (const file of files) {
-      // Extract text
-      let text = "";
-      if (file.originalname.endsWith(".pdf")) {
-        const data = await pdfParse(file.buffer);
-        text = data.text;
-      } else {
-        text = file.buffer.toString("utf-8");
-      }
+      console.log(`[Ingestion] Processing file: ${file.originalname} (${file.size} bytes)`);
+      try {
+        let text = "";
+        if (file.originalname.endsWith(".pdf")) {
+          const data = await pdfParse(file.buffer);
+          text = data.text;
+        } else {
+          text = file.buffer.toString("utf-8");
+        }
 
-      // Chunk text (simple chunking by paragraphs)
-      const chunks = text.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
-      for (const chunk of chunks) {
-        extractedChunks.push({ text: chunk, source: file.originalname });
+        const chunks = text.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
+        for (const chunk of chunks) {
+          extractedChunks.push({ text: chunk, source: file.originalname });
+        }
+      } catch (fileError) {
+        console.error(`[Ingestion] Failed to parse file ${file.originalname}:`, fileError);
+        // Continue with other files instead of crashing
       }
     }
 
-    // Write to turbopuffer
-    if (extractedChunks.length > 0 && process.env.TURBOPUFFER_API_KEY) {
-      const ns = tpuf.namespace(`project-${projectId}`);
-      
-      const rows = [];
-      for (let i = 0; i < extractedChunks.length; i++) {
-        const chunk = extractedChunks[i];
-        let vector = [Math.random(), Math.random()]; // fallback
-        
-        if (ai) {
-          try {
-            const embedding = await ai.models.embedContent({
-              model: "text-embedding-004",
-              contents: chunk.text,
-            });
-            if (embedding.embeddings && embedding.embeddings.length > 0) {
-              vector = embedding.embeddings[0].values;
-            }
-          } catch (e) {
-            console.error("Gemini embedding failed, using fallback", e);
-          }
-        }
+    if (extractedChunks.length === 0) {
+      return res.status(400).json({ error: "No usable text could be extracted from the uploaded files." });
+    }
 
-        rows.push({
-          id: i + 1,
-          vector,
-          text: chunk.text,
-          source: chunk.source,
-        });
+    console.log(`[Ingestion] Indexing ${extractedChunks.length} chunks into Turbopuffer...`);
+    const ns = tpuf.namespace(`project-${projectId}`);
+    
+    const rows = [];
+    for (let i = 0; i < extractedChunks.length; i++) {
+      const chunk = extractedChunks[i];
+      let vector = [Math.random(), Math.random()]; // fallback
+      
+      if (ai) {
+        try {
+          const embedding = await ai.models.embedContent({
+            model: "text-embedding-004",
+            contents: chunk.text,
+          });
+          if (embedding.embeddings && embedding.embeddings.length > 0) {
+            vector = embedding.embeddings[0].values;
+          }
+        } catch (e) {
+          console.error("Gemini embedding failed, using fallback", e);
+        }
       }
 
-      await ns.write({
-        upsert_rows: rows,
-        distance_metric: "cosine_distance",
-        schema: {
-          text: {
-            type: "string",
-            full_text_search: true,
-          },
-          source: {
-            type: "string",
-          }
-        }
+      rows.push({
+        id: i + 1,
+        vector,
+        text: chunk.text,
+        source: chunk.source,
       });
     }
 
+    await ns.write({
+      upsert_rows: rows,
+      distance_metric: "cosine_distance",
+      schema: {
+        text: { type: "string", full_text_search: true },
+        source: { type: "string" }
+      }
+    });
+
+    console.log("[Ingestion] Completed successfully.");
     res.json({ success: true, projectId, chunksProcessed: extractedChunks.length });
   } catch (error) {
-    console.error("Ingestion error:", error);
-    res.status(500).json({ error: "Ingestion failed" });
+    console.error("[Ingestion] Global Fatal Error:", error);
+    res.status(500).json({ 
+      error: "Creative ingestion failed.", 
+      details: (error as Error).message,
+      stack: process.env.NODE_ENV === "development" ? (error as Error).stack : undefined
+    });
   }
 });
 
