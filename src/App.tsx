@@ -39,13 +39,313 @@ import {
   FileAudio,
   Plus,
   Database,
-  Sparkles
+  Sparkles,
+  Zap,
+  AlertTriangle,
+  Target,
+  Award,
+  BarChart3,
+  TrendingDown,
+  Crosshair,
+  ShieldCheck,
+  Lightbulb,
+  RefreshCw,
+  Eye,
+  ArrowRight,
+  Crown,
 } from 'lucide-react';
 
 import { db } from './db';
 
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+interface NeuralInsights {
+  summary: {
+    quality: string;
+    diagnosis: string;
+  };
+  weaknesses: string[];
+  actions: string[];
+  optimized_script: string | null;
+  variant_ranking: {
+    name: string;
+    rank: number;
+    engagement_score: number;
+    strengths: string;
+    weaknesses: string;
+  }[];
+  winner: {
+    name: string;
+    reason: string;
+    dominant_signal: string;
+  };
+  _raw?: {
+    variantName: string;
+    tribeMarkdown: string;
+  }[];
+}
+
+// ─── Context ────────────────────────────────────────────────────────────────
+
 const ToastContext = React.createContext<{ showToast: (msg: string) => void }>({ showToast: () => {} });
 const useToast = () => React.useContext(ToastContext);
+
+// ─── Quality Badge Colors ───────────────────────────────────────────────────
+
+const qualityConfig: Record<string, { color: string; bg: string; border: string; glow: string }> = {
+  Elite: { color: 'text-tertiary', bg: 'bg-tertiary/10', border: 'border-tertiary/30', glow: 'shadow-[0_0_20px_rgba(183,254,77,0.2)]' },
+  Strong: { color: 'text-green-400', bg: 'bg-green-400/10', border: 'border-green-400/30', glow: 'shadow-[0_0_20px_rgba(74,222,128,0.15)]' },
+  Good: { color: 'text-secondary', bg: 'bg-secondary/10', border: 'border-secondary/30', glow: 'shadow-[0_0_20px_rgba(105,156,255,0.15)]' },
+  Average: { color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', glow: '' },
+  Bad: { color: 'text-red-400', bg: 'bg-red-400/10', border: 'border-red-400/30', glow: '' },
+};
+
+const signalIcons: Record<string, React.ReactNode> = {
+  emotion: <Zap size={14} />,
+  recall: <Brain size={14} />,
+  attention: <Eye size={14} />,
+  virality: <TrendingUp size={14} />,
+  intent: <Target size={14} />,
+};
+
+// ─── Neural Insights Panel ──────────────────────────────────────────────────
+
+const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: NeuralInsights | null; isLoading: boolean; onClose?: () => void }) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'actions' | 'script' | 'raw'>('overview');
+
+  if (isLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-surface-container-low/30 border border-primary/20 rounded-2xl p-8 relative overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[shimmer_2s_infinite] w-[200%] -translate-x-1/2"></div>
+        <div className="flex flex-col items-center gap-4 relative z-10">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Brain className="text-primary animate-pulse" size={28} />
+            </div>
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 border-2 border-transparent border-t-primary/40 rounded-full"
+            />
+          </div>
+          <div className="text-center">
+            <h3 className="text-sm font-headline font-bold text-primary">Running Neural Analysis...</h3>
+            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-2">
+              TRIBE v2 is processing engagement, emotion, and recall patterns
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            {['Engagement', 'Emotion', 'Recall', 'Attention'].map((label, i) => (
+              <motion.span
+                key={label}
+                animate={{ opacity: [0.3, 1, 0.3] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
+                className="text-[8px] uppercase tracking-widest text-on-surface-variant/60 bg-surface-container/50 px-2 py-1 rounded"
+              >
+                {label}
+              </motion.span>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (!insights) return null;
+
+  const qConfig = qualityConfig[insights.summary.quality] || qualityConfig.Average;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="p-6 border-b border-outline/10 bg-surface-container-low/30">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2.5 rounded-xl text-primary">
+              <Zap size={20} />
+            </div>
+            <div>
+              <h3 className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface">Neural Analysis</h3>
+              <p className="text-[10px] text-on-surface-variant mt-0.5">TRIBE v2 Intelligence Report</p>
+            </div>
+          </div>
+          {onClose && (
+            <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface p-1">
+              <X size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* Quality Badge */}
+        <div className={`flex items-center justify-between p-4 rounded-xl border ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
+          <div className="flex items-center gap-3">
+            <div className={`text-2xl font-headline font-extrabold ${qConfig.color}`}>
+              {insights.summary.quality}
+            </div>
+            <div className="w-px h-8 bg-outline/20" />
+            <p className="text-xs text-on-surface/80 max-w-sm leading-relaxed">{insights.summary.diagnosis}</p>
+          </div>
+          <ShieldCheck size={24} className={qConfig.color} />
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-outline/10">
+        {[
+          { key: 'overview' as const, label: 'Insights', icon: <BarChart3 size={14} /> },
+          { key: 'actions' as const, label: 'Actions', icon: <Lightbulb size={14} /> },
+          ...(insights.optimized_script ? [{ key: 'script' as const, label: 'Optimized', icon: <FileText size={14} /> }] : []),
+          ...(insights._raw ? [{ key: 'raw' as const, label: 'Raw', icon: <Database size={14} /> }] : []),
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-[10px] uppercase tracking-widest font-bold transition-all border-b-2 ${
+              activeTab === tab.key
+                ? 'text-primary border-primary bg-primary/5'
+                : 'text-on-surface-variant border-transparent hover:text-on-surface hover:bg-white/5'
+            }`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="p-6">
+        <AnimatePresence mode="wait">
+          {activeTab === 'overview' && (
+            <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+              {/* Weaknesses */}
+              <div>
+                <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-red-400/80 flex items-center gap-2 mb-3">
+                  <AlertTriangle size={14} /> Key Weaknesses
+                </h4>
+                <div className="space-y-2">
+                  {insights.weaknesses.map((w, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                      <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-0.5 shrink-0">W{i + 1}</span>
+                      <p className="text-xs text-on-surface/80 leading-relaxed">{w}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Winner */}
+              {insights.winner && (
+                <div className="p-4 bg-tertiary/5 border border-tertiary/20 rounded-xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Crown size={16} className="text-tertiary" />
+                    <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-tertiary">Winner</h4>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-headline font-bold text-on-surface">{insights.winner.name}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{insights.winner.reason}</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-tertiary/10 px-3 py-1.5 rounded-lg">
+                      {signalIcons[insights.winner.dominant_signal] || <Zap size={14} />}
+                      <span className="text-[10px] uppercase tracking-widest font-bold text-tertiary">{insights.winner.dominant_signal}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Variant Ranking */}
+              {insights.variant_ranking && insights.variant_ranking.length > 1 && (
+                <div>
+                  <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-2 mb-3">
+                    <Award size={14} /> Variant Ranking
+                  </h4>
+                  <div className="space-y-2">
+                    {insights.variant_ranking.sort((a, b) => a.rank - b.rank).map((v) => (
+                      <div key={v.name} className="flex items-center gap-4 p-3 bg-surface-container/30 border border-outline/10 rounded-xl">
+                        <span className={`text-sm font-headline font-extrabold ${v.rank === 1 ? 'text-tertiary' : v.rank === 2 ? 'text-secondary' : 'text-on-surface-variant'}`}>
+                          #{v.rank}
+                        </span>
+                        <div className="flex-1">
+                          <p className="text-xs font-medium text-on-surface">{v.name}</p>
+                          <p className="text-[10px] text-on-surface-variant mt-0.5">{v.strengths}</p>
+                        </div>
+                        {v.engagement_score > 0 && (
+                          <span className="text-xs font-bold text-primary">{(v.engagement_score * 100).toFixed(0)}%</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'actions' && (
+            <motion.div key="actions" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+              <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary flex items-center gap-2 mb-2">
+                <Crosshair size={14} /> Optimization Actions
+              </h4>
+              {insights.actions.map((a, i) => (
+                <div key={i} className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/10 rounded-xl group hover:border-primary/30 transition-colors">
+                  <div className="w-7 h-7 shrink-0 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-headline font-bold text-xs">
+                    {i + 1}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-on-surface leading-relaxed">{a}</p>
+                  </div>
+                  <ArrowRight size={14} className="text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+                </div>
+              ))}
+            </motion.div>
+          )}
+
+          {activeTab === 'script' && insights.optimized_script && (
+            <motion.div key="script" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-secondary flex items-center gap-2 mb-3">
+                <FileText size={14} /> Optimized Script
+              </h4>
+              <div className="bg-black/30 border border-secondary/10 rounded-xl p-5 relative group">
+                <p className="text-sm text-on-surface/90 leading-relaxed font-light whitespace-pre-wrap">{insights.optimized_script}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(insights.optimized_script || '');
+                  }}
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-surface-container-high hover:bg-surface-variant text-on-surface-variant px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest border border-outline/10"
+                >
+                  Copy
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'raw' && insights._raw && (
+            <motion.div key="raw" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-2 mb-2">
+                <Database size={14} /> Raw TRIBE v2 Output
+              </h4>
+              {insights._raw.map((raw, i) => (
+                <div key={i} className="bg-black/30 border border-outline/10 rounded-xl p-4">
+                  <p className="text-[10px] text-primary uppercase tracking-widest font-bold mb-3">{raw.variantName}</p>
+                  <pre className="text-[11px] text-on-surface-variant/80 whitespace-pre-wrap leading-relaxed font-mono overflow-auto max-h-60 custom-scrollbar">
+                    {raw.tribeMarkdown}
+                  </pre>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+};
+
+// ─── Sidebar ────────────────────────────────────────────────────────────────
 
 const Sidebar = ({ className = "", onClose, onNewProject }: { className?: string, onClose?: () => void, onNewProject?: () => void }) => {
   const { showToast } = useToast();
@@ -206,7 +506,7 @@ const Hero = () => {
   );
 };
 
-const Controls = ({ onGenerate }: { onGenerate: () => void }) => {
+const Controls = ({ onGenerate, onAnalyzeAll, variants, isAnalyzing }: { onGenerate: () => void, onAnalyzeAll: () => void, variants: any[], isAnalyzing: boolean }) => {
   const { showToast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -302,14 +602,26 @@ const Controls = ({ onGenerate }: { onGenerate: () => void }) => {
 
       <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-8 bg-surface-container-low/20 p-6 rounded-2xl border border-outline/5 relative">
         <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-10 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-300">
-          <button 
-            onClick={handleGenerateClick}
-            disabled={isGenerating}
-            className="bg-primary text-on-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
-          >
-            {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {isGenerating ? 'Generating...' : 'Generate Audio Variants'}
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button 
+              onClick={handleGenerateClick}
+              disabled={isGenerating}
+              className="bg-primary text-on-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
+            >
+              {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {isGenerating ? 'Generating...' : 'Generate Audio Variants'}
+            </button>
+            {variants.length > 0 && (
+              <button 
+                onClick={onAnalyzeAll}
+                disabled={isAnalyzing}
+                className="bg-tertiary/10 text-tertiary px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-tertiary/20 transition-colors flex items-center gap-2 border border-tertiary/20"
+              >
+                {isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+                {isAnalyzing ? 'Analyzing...' : 'Analyze All with TRIBE v2'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="space-y-4">
           <label className="text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/80 font-bold flex justify-between">
@@ -333,7 +645,7 @@ const Controls = ({ onGenerate }: { onGenerate: () => void }) => {
   );
 };
 
-const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { variant: any, rank: number, isSelected: boolean, onToggleSelect: (id: string) => void, onDelete: (id: string) => void }) => {
+const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAnalyze, isAnalyzing }: { variant: any, rank: number, isSelected: boolean, onToggleSelect: (id: string) => void, onDelete: (id: string) => void, onAnalyze: (variant: any) => void, isAnalyzing: boolean }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -373,6 +685,17 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Analyze Button */}
+          <div className="relative group flex items-center justify-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onAnalyze(variant); }} 
+              disabled={isAnalyzing}
+              className={`text-on-surface-variant/40 hover:text-tertiary transition-colors p-1 ${isAnalyzing ? 'animate-pulse' : ''}`}
+            >
+              {isAnalyzing ? <Loader2 size={16} className="animate-spin text-tertiary" /> : <Brain size={16} />}
+            </button>
+            <span className="absolute -top-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">Analyze with TRIBE v2</span>
+          </div>
           <div className="relative group flex items-center justify-center">
             <button onClick={(e) => { e.stopPropagation(); setIsShareOpen(true); }} className="text-on-surface-variant/40 hover:text-primary transition-colors p-1">
               <Share2 size={16} />
@@ -428,7 +751,7 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-t border-outline/10 pt-4 mt-2"
           >
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4 mb-4">
               <div className="bg-surface-container/30 p-3 rounded-lg border border-outline/5">
                 <p className="text-[9px] uppercase tracking-widest text-on-surface-variant mb-1">Score</p>
                 <p className="text-lg font-headline font-bold text-tertiary">{variant.score}</p>
@@ -442,6 +765,13 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
                 <p className="text-lg font-headline font-bold text-primary">{variant.brandAffinity}</p>
               </div>
             </div>
+            {/* Script display */}
+            {variant.script && (
+              <div className="bg-black/20 p-4 rounded-xl border border-outline/5">
+                <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold mb-2">Script</p>
+                <p className="text-xs text-on-surface/80 leading-relaxed italic">{variant.script}</p>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -501,7 +831,7 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
   );
 };
 
-const ActiveVariants = ({ variants, setVariants }: { variants: any[], setVariants: React.Dispatch<React.SetStateAction<any[]>> }) => {
+const ActiveVariants = ({ variants, setVariants, onAnalyzeVariant, analyzingVariantId }: { variants: any[], setVariants: React.Dispatch<React.SetStateAction<any[]>>, onAnalyzeVariant: (variant: any) => void, analyzingVariantId: string | null }) => {
   const [sortBy, setSortBy] = useState('score');
   const [filterQuality, setFilterQuality] = useState('All');
   const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
@@ -605,7 +935,9 @@ const ActiveVariants = ({ variants, setVariants }: { variants: any[], setVariant
                 rank={index + 1}
                 isSelected={selectedVariants.includes(variant.id)}
                 onToggleSelect={handleToggleSelect}
-                onDelete={handleDelete} 
+                onDelete={handleDelete}
+                onAnalyze={onAnalyzeVariant}
+                isAnalyzing={analyzingVariantId === variant.id}
               />
             </motion.div>
           ))}
@@ -686,7 +1018,7 @@ const BrainSimulation = () => {
 
 
 
-const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => {
+const AnalyticsPanel = ({ className = "", onClose, neuralInsights, isNeuralLoading }: { className?: string, onClose?: () => void, neuralInsights: NeuralInsights | null, isNeuralLoading: boolean }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const { showToast } = useToast();
@@ -709,30 +1041,36 @@ const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClo
         </button>
       </div>
     )}
-    <section>
-      <div className="flex items-center gap-2 mb-6">
-        <BadgeCheck className="text-tertiary" size={18} fill="currentColor" stroke="black" />
-        <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Recommended Asset</h3>
-      </div>
-      <div className="bg-gradient-to-b from-surface-container-high/40 to-surface-container-low/20 p-6 rounded-2xl border border-tertiary/10 shadow-lg">
-        <div className="flex justify-between items-center mb-6">
-          <span className="text-sm font-headline font-bold text-on-surface">Variant A</span>
-          <span className="text-xs font-bold text-tertiary">92.4% Recall</span>
+
+    {/* Neural Insights — when available, replaces static recommendation */}
+    {(neuralInsights || isNeuralLoading) ? (
+      <NeuralInsightsPanel insights={neuralInsights} isLoading={isNeuralLoading} />
+    ) : (
+      <section>
+        <div className="flex items-center gap-2 mb-6">
+          <BadgeCheck className="text-tertiary" size={18} fill="currentColor" stroke="black" />
+          <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Recommended Asset</h3>
         </div>
-        <div className="space-y-4 mb-6">
-          <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Insights</p>
-          <div className="p-4 bg-black/30 rounded-xl border border-outline/5">
-            <p className="text-[11px] text-on-surface/90 leading-relaxed font-light">
-              <span className="text-tertiary font-medium">Neural Match:</span> Highest subconscious recall detected at 0:08 sequence. Frequency profile matches target audience baseline for "Premium Tech" vertical.
-            </p>
+        <div className="bg-gradient-to-b from-surface-container-high/40 to-surface-container-low/20 p-6 rounded-2xl border border-tertiary/10 shadow-lg">
+          <div className="flex justify-between items-center mb-6">
+            <span className="text-sm font-headline font-bold text-on-surface">Variant A</span>
+            <span className="text-xs font-bold text-tertiary">92.4% Recall</span>
+          </div>
+          <div className="space-y-4 mb-6">
+            <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Insights</p>
+            <div className="p-4 bg-black/30 rounded-xl border border-outline/5">
+              <p className="text-[11px] text-on-surface/90 leading-relaxed font-light">
+                <span className="text-tertiary font-medium">Neural Match:</span> Highest subconscious recall detected at 0:08 sequence. Frequency profile matches target audience baseline for "Premium Tech" vertical.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] text-on-surface-variant/70">
+            <TrendingUp size={16} strokeWidth={1.5} />
+            <span>Confidence Score: High</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[10px] text-on-surface-variant/70">
-          <TrendingUp size={16} strokeWidth={1.5} />
-          <span>Confidence Score: High</span>
-        </div>
-      </div>
-    </section>
+      </section>
+    )}
 
     <BrainSimulation />
 
@@ -1117,6 +1455,11 @@ export default function App() {
   const [currentProject, setCurrentProject] = useState<any>(null);
   const [isIngesting, setIsIngesting] = useState(false);
   const [variants, setVariants] = useState<any[]>([]);
+  
+  // Neural analysis state
+  const [neuralInsights, setNeuralInsights] = useState<NeuralInsights | null>(null);
+  const [isNeuralLoading, setIsNeuralLoading] = useState(false);
+  const [analyzingVariantId, setAnalyzingVariantId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1226,6 +1569,80 @@ export default function App() {
     }
   };
 
+  // ─── Neural Analysis Handlers ───────────────────────────────────────────
+
+  const handleAnalyzeVariant = async (variant: any) => {
+    if (!variant.script) {
+      showToast("No script available for this variant.");
+      return;
+    }
+
+    setAnalyzingVariantId(variant.id);
+    setIsNeuralLoading(true);
+    setNeuralInsights(null);
+    showToast(`Analyzing "${variant.name}" with TRIBE v2...`);
+
+    try {
+      const response = await fetch('/api/analyze-neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variants: [{ name: variant.name, script: variant.script }],
+          projectGoal: currentProject?.goal,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Neural analysis failed');
+
+      const data = await response.json();
+      setNeuralInsights(data.insights);
+      showToast(`Neural analysis complete for "${variant.name}"`);
+    } catch (error) {
+      console.error('Neural analysis error:', error);
+      showToast('Neural analysis failed. Check console for details.');
+    } finally {
+      setIsNeuralLoading(false);
+      setAnalyzingVariantId(null);
+    }
+  };
+
+  const handleAnalyzeAll = async () => {
+    const variantsWithScripts = variants.filter((v) => v.script);
+    if (variantsWithScripts.length === 0) {
+      showToast('No variants with scripts to analyze.');
+      return;
+    }
+
+    setIsNeuralLoading(true);
+    setNeuralInsights(null);
+    showToast(`Analyzing ${variantsWithScripts.length} variant(s) with TRIBE v2...`);
+
+    try {
+      const response = await fetch('/api/analyze-neural', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variants: variantsWithScripts.map((v) => ({
+            name: v.name,
+            script: v.script,
+          })),
+          projectGoal: currentProject?.goal,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Neural analysis failed');
+
+      const data = await response.json();
+      setNeuralInsights(data.insights);
+      showToast('Multi-variant neural analysis complete!');
+    } catch (error) {
+      console.error('Neural analysis error:', error);
+      showToast('Neural analysis failed. Check console for details.');
+    } finally {
+      setIsNeuralLoading(false);
+    }
+  };
+
   return (
     <ToastContext.Provider value={{ showToast }}>
     <div className="flex h-screen overflow-hidden bg-background text-on-surface selection:bg-primary/30 selection:text-on-surface antialiased">
@@ -1264,7 +1681,7 @@ export default function App() {
               initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
               className="fixed inset-y-0 right-0 z-[70] w-80 sm:w-96 bg-background border-l border-outline/10 shadow-2xl xl:hidden"
             >
-              <AnalyticsPanel className="h-full w-full border-none p-6 sm:p-10" onClose={() => setIsRightMenuOpen(false)} />
+              <AnalyticsPanel className="h-full w-full border-none p-6 sm:p-10" onClose={() => setIsRightMenuOpen(false)} neuralInsights={neuralInsights} isNeuralLoading={isNeuralLoading} />
             </motion.div>
           </>
         )}
@@ -1279,12 +1696,23 @@ export default function App() {
               <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
             </div>
             <Hero />
-            <Controls onGenerate={handleGenerateVariants} />
-            <ActiveVariants variants={variants} setVariants={setVariants} />
+            <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
+            <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
+            
+            {/* Inline Neural Insights (below variants, for larger screens) */}
+            {(neuralInsights || isNeuralLoading) && (
+              <div className="xl:hidden">
+                <NeuralInsightsPanel 
+                  insights={neuralInsights} 
+                  isLoading={isNeuralLoading} 
+                  onClose={() => { setNeuralInsights(null); setIsNeuralLoading(false); }} 
+                />
+              </div>
+            )}
           </div>
         </div>
         {/* Analytics Panel for Desktop */}
-        <AnalyticsPanel className="hidden xl:flex w-96 border-l border-outline/5 p-10" />
+        <AnalyticsPanel className="hidden xl:flex w-96 border-l border-outline/5 p-10" neuralInsights={neuralInsights} isNeuralLoading={isNeuralLoading} />
       </main>
 
       <AnimatePresence>
