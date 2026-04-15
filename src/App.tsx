@@ -433,78 +433,6 @@ const Header = ({ onLeftMenuClick, onRightMenuClick }: { onLeftMenuClick: () => 
   );
 };
 
-const slides = [
-  {
-    id: 1,
-    title: (
-      <>
-        Audio <span className="text-primary text-glow">Synthesis</span> Studio
-      </>
-    ),
-    description: "Synthesize high-conversion audio variants leveraging neuro-data benchmarks.",
-    bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBAwy1qTJq5IoSIxJjSay1R2k8Al8xJASl664pkYLeqKhC3Mg0igOn27VGlInwSCjSH1HyvUtS8quzrAhxmBVxbTGGonjiEVwSZLuDLK4QeGQSiBMXKh5Ykeosce2OhZNZytWYxGeOxZN0Y5gxlslpu7AvpCCc8ZySOnKBvH7poo_qcYJpeROyS6hxv7t3YY6EPHXB9NjuiOBxl9ro-R0LQluHCBeIIDYs8weOO7i_z72UrkLt2hAAiMsDIotT6og_QiBa_-pTrina7"
-  },
-  {
-    id: 2,
-    title: (
-      <>
-        Create audio that <br/><span className="text-primary text-glow">brains remember.</span>
-      </>
-    ),
-    description: "Leverage neuro-data to synthesize high-conversion audio variants in seconds.",
-    bgImage: "https://lh3.googleusercontent.com/aida-public/AB6AXuBAwy1qTJq5IoSIxJjSay1R2k8Al8xJASl664pkYLeqKhC3Mg0igOn27VGlInwSCjSH1HyvUtS8quzrAhxmBVxbTGGonjiEVwSZLuDLK4QeGQSiBMXKh5Ykeosce2OhZNZytWYxGeOxZN0Y5gxlslpu7AvpCCc8ZySOnKBvH7poo_qcYJpeROyS6hxv7t3YY6EPHXB9NjuiOBxl9ro-R0LQluHCBeIIDYs8weOO7i_z72UrkLt2hAAiMsDIotT6og_QiBa_-pTrina7"
-  }
-];
-
-const Hero = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <section className="relative h-72 rounded-xl overflow-hidden group border border-outline/10 shadow-2xl bg-surface-container-lowest">
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={currentSlide}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8 }}
-          className="absolute inset-0 flex items-center px-12"
-        >
-          <div 
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105" 
-            style={{backgroundImage: `url('${slides[currentSlide].bgImage}')`}}
-          ></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/40 to-transparent"></div>
-          <div className="relative z-10 max-w-lg">
-            <h2 className="text-4xl font-headline font-extrabold tracking-tighter text-on-surface mb-4 leading-tight">
-              {slides[currentSlide].title}
-            </h2>
-            <p className="text-on-surface-variant text-base max-w-sm">
-              {slides[currentSlide].description}
-            </p>
-          </div>
-        </motion.div>
-      </AnimatePresence>
-      
-      <div className="absolute bottom-6 left-12 flex gap-2 z-20">
-        {slides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCurrentSlide(idx)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentSlide ? 'w-8 bg-primary' : 'w-2 bg-on-surface-variant/40 hover:bg-on-surface-variant'}`}
-          />
-        ))}
-      </div>
-    </section>
-  );
-};
 
 const Controls = ({ onGenerate, onAnalyzeAll, variants, isAnalyzing }: { onGenerate: () => void, onAnalyzeAll: () => void, variants: any[], isAnalyzing: boolean }) => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -1473,7 +1401,7 @@ export default function App() {
               <ProjectContextBar project={currentProject} />
               <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
             </div>
-            <Hero />
+
             <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
             <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
             
