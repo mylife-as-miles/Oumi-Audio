@@ -29,10 +29,27 @@ import {
   Facebook,
   Menu,
   Activity,
-  History
+  History,
+  Loader2,
+  Pause,
+  CheckCircle,
+  FileText,
+  Square,
+  UploadCloud,
+  FileAudio,
+  Plus,
+  Database,
+  Sparkles
 } from 'lucide-react';
 
-const Sidebar = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => (
+import { db } from './db';
+
+const ToastContext = React.createContext<{ showToast: (msg: string) => void }>({ showToast: () => {} });
+const useToast = () => React.useContext(ToastContext);
+
+const Sidebar = ({ className = "", onClose, onNewProject }: { className?: string, onClose?: () => void, onNewProject?: () => void }) => {
+  const { showToast } = useToast();
+  return (
   <aside className={`flex flex-col py-10 px-6 glass-panel z-50 ${className}`}>
     <div className="mb-12 flex justify-between items-start">
       <div>
@@ -45,37 +62,45 @@ const Sidebar = ({ className = "", onClose }: { className?: string, onClose?: ()
         </button>
       )}
     </div>
-    <button className="mb-10 w-full py-2.5 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary font-headline font-medium text-[11px] uppercase tracking-widest hover:bg-primary/20 transition-all duration-300">
+    <button 
+      onClick={() => { 
+        if (onNewProject) onNewProject();
+        if (onClose) onClose(); 
+      }}
+      className="mb-10 w-full py-2.5 px-4 rounded-lg bg-primary/10 border border-primary/20 text-primary font-headline font-medium text-[11px] uppercase tracking-widest hover:bg-primary/20 transition-all duration-300"
+    >
       New Project
     </button>
     <nav className="flex-1 space-y-1">
-      <a className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-primary bg-primary/5 font-medium transition-all" href="#">
+      <a onClick={(e) => { e.preventDefault(); showToast("Opening Projects..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-primary bg-primary/5 font-medium transition-all" href="#">
         <FolderOpen size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Projects</span>
       </a>
-      <a className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+      <a onClick={(e) => { e.preventDefault(); showToast("Opening Library..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
         <Music size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Library</span>
       </a>
-      <a className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+      <a onClick={(e) => { e.preventDefault(); showToast("Opening Creative Memory..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
         <Brain size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Creative Memory</span>
       </a>
-      <a className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+      <a onClick={(e) => { e.preventDefault(); showToast("Opening Settings..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
         <Settings size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Settings</span>
       </a>
     </nav>
     <div className="mt-auto pt-6 border-t border-outline/5">
-      <a className="flex items-center gap-3 py-2 px-4 rounded-lg text-on-surface-variant/60 hover:text-on-surface transition-colors" href="#">
+      <a onClick={(e) => { e.preventDefault(); showToast("Opening Help Center..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2 px-4 rounded-lg text-on-surface-variant/60 hover:text-on-surface transition-colors" href="#">
         <HelpCircle size={18} strokeWidth={1.5} />
         <span className="font-headline text-[10px] uppercase tracking-widest">Help Center</span>
       </a>
     </div>
   </aside>
-);
+  );
+};
 
 const Header = ({ onLeftMenuClick, onRightMenuClick }: { onLeftMenuClick: () => void, onRightMenuClick: () => void }) => {
+  const { showToast } = useToast();
   return (
     <header className="sticky top-0 right-0 w-full h-14 flex items-center justify-between px-4 md:px-10 z-40 glass-nav border-b border-outline/5">
       <div className="flex-1 flex justify-start">
@@ -87,6 +112,12 @@ const Header = ({ onLeftMenuClick, onRightMenuClick }: { onLeftMenuClick: () => 
         <div className="relative flex items-center group">
           <Search className="absolute left-3 text-on-surface-variant/50" size={18} strokeWidth={1.5} />
           <input 
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                showToast(`Searching projects for "${e.currentTarget.value}"...`);
+                e.currentTarget.value = '';
+              }
+            }}
             className="bg-surface-container-low/40 border-none rounded-md py-1.5 pl-9 pr-4 text-[9px] font-headline tracking-[0.1em] text-on-surface focus:ring-1 focus:ring-primary/30 focus:outline-none w-40 md:w-52 transition-all placeholder:text-on-surface-variant/40" 
             placeholder="SEARCH PROJECTS..." 
             type="text" 
@@ -175,7 +206,23 @@ const Hero = () => {
   );
 };
 
-const Controls = () => (
+const Controls = () => {
+  const { showToast } = useToast();
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (query?: string) => {
+    const q = query || searchQuery;
+    if (!q) return;
+    setIsSearching(true);
+    if (query) setSearchQuery(query);
+    setTimeout(() => {
+      setIsSearching(false);
+      showToast(`Search completed for "${q}"`);
+    }, 1500);
+  };
+
+  return (
   <section className="space-y-8">
     {/* Search Bar Area */}
     <div className="space-y-4">
@@ -188,25 +235,33 @@ const Controls = () => (
       <div className="relative group">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
         <input 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           className="relative w-full bg-surface-container-low/80 border border-outline/20 rounded-2xl py-5 pl-14 pr-24 text-sm text-on-surface focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:outline-none transition-all placeholder:text-on-surface-variant/50 shadow-lg" 
           placeholder="Search creative memory for sonic profiles, pacing, or emotional arcs..." 
           type="text" 
         />
         <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary/80" size={24} strokeWidth={1.5} />
-        <button className="absolute right-3 top-1/2 -translate-y-1/2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-colors">
-          Search
+        <button 
+          onClick={() => handleSearch()}
+          disabled={isSearching}
+          className="absolute right-3 top-1/2 -translate-y-1/2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center gap-2"
+        >
+          {isSearching ? <Loader2 size={14} className="animate-spin" /> : null}
+          {isSearching ? 'Searching' : 'Search'}
         </button>
       </div>
 
       {/* Suggestions & Recents */}
       <div className="flex flex-wrap items-center gap-3 pt-2">
         <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold mr-2">Suggestions:</span>
-        <button className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Upbeat Gen-Z UGC"</button>
-        <button className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Cinematic suspense build"</button>
-        <button className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Lo-fi study beats"</button>
+        <button onClick={() => handleSearch("Upbeat Gen-Z UGC")} className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Upbeat Gen-Z UGC"</button>
+        <button onClick={() => handleSearch("Cinematic suspense build")} className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Cinematic suspense build"</button>
+        <button onClick={() => handleSearch("Lo-fi study beats")} className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Lo-fi study beats"</button>
         <div className="w-px h-4 bg-outline/20 mx-2 hidden sm:block"></div>
         <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold mr-2 flex items-center gap-1"><History size={12}/> Recent:</span>
-        <button className="text-[10px] text-on-surface-variant/60 hover:text-primary transition-colors underline decoration-outline/30 underline-offset-4">"Corporate tech promo"</button>
+        <button onClick={() => handleSearch("Corporate tech promo")} className="text-[10px] text-on-surface-variant/60 hover:text-primary transition-colors underline decoration-outline/30 underline-offset-4">"Corporate tech promo"</button>
       </div>
     </div>
 
@@ -218,7 +273,7 @@ const Controls = () => (
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Match Card 1 */}
-          <div className="bg-surface-container-low/30 border border-outline/10 p-4 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
+          <div onClick={() => showToast("Loading Project: Neon Pulse")} className="bg-surface-container-low/30 border border-outline/10 p-4 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
             <div className="flex justify-between items-start mb-2">
               <span className="text-[9px] text-tertiary uppercase tracking-widest font-bold bg-tertiary/10 px-2 py-0.5 rounded">98% Match</span>
               <Play size={14} className="text-on-surface-variant group-hover:text-primary transition-colors" />
@@ -227,7 +282,7 @@ const Controls = () => (
             <p className="text-[10px] text-on-surface-variant/60 line-clamp-2">High-BPM electronic track with aggressive synth bass and rising risers.</p>
           </div>
           {/* Match Card 2 */}
-          <div className="bg-surface-container-low/30 border border-outline/10 p-4 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
+          <div onClick={() => showToast("Loading Asset: Cyberpunk Ad")} className="bg-surface-container-low/30 border border-outline/10 p-4 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
             <div className="flex justify-between items-start mb-2">
               <span className="text-[9px] text-secondary uppercase tracking-widest font-bold bg-secondary/10 px-2 py-0.5 rounded">85% Match</span>
               <Play size={14} className="text-on-surface-variant group-hover:text-primary transition-colors" />
@@ -258,12 +313,26 @@ const Controls = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { variant: any, rank: number, isSelected: boolean, onToggleSelect: (id: string) => void, onDelete: (id: string) => void }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const { showToast } = useToast();
+
+  const handlePlayToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPlaying) {
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+      showToast(`Playing ${variant.name}...`);
+      setTimeout(() => setIsPlaying(false), 3000);
+    }
+  };
 
   return (
     <div className={`p-6 rounded-2xl flex flex-col gap-5 transition-all duration-300 border ${isSelected ? 'bg-primary/5 border-primary/30 shadow-[0_0_30px_rgba(var(--color-primary),0.15)]' : 'bg-surface-container-low/20 border-outline/10 hover:border-primary/30 hover:bg-surface-bright/40'}`}>
@@ -325,11 +394,11 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
       
       <div className="flex justify-between items-center">
         <div className="relative group flex items-center justify-center">
-          <button className="flex items-center gap-2 text-[11px] font-bold text-on-surface bg-white/5 py-2 px-5 rounded-lg border border-outline/10 hover:bg-white/10 transition-all uppercase tracking-widest">
-            <Play size={16} fill="currentColor" />
-            Preview
+          <button onClick={handlePlayToggle} className="flex items-center gap-2 text-[11px] font-bold text-on-surface bg-white/5 py-2 px-5 rounded-lg border border-outline/10 hover:bg-white/10 transition-all uppercase tracking-widest">
+            {isPlaying ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+            {isPlaying ? 'Stop' : 'Preview'}
           </button>
-          <span className="absolute -top-8 left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">Play Audio</span>
+          <span className="absolute -top-8 left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">{isPlaying ? 'Stop Audio' : 'Play Audio'}</span>
         </div>
         <span className="text-[10px] text-on-surface-variant font-medium">{variant.duration}</span>
       </div>
@@ -374,15 +443,15 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
                 <button onClick={() => setIsShareOpen(false)} className="text-on-surface-variant hover:text-on-surface"><X size={20} /></button>
               </div>
               <div className="space-y-3">
-                <button className="w-full flex items-center gap-3 bg-surface-container-low hover:bg-surface-variant p-3 rounded-xl border border-outline/10 transition-colors">
+                <button onClick={() => { showToast("Link copied to clipboard"); setIsShareOpen(false); }} className="w-full flex items-center gap-3 bg-surface-container-low hover:bg-surface-variant p-3 rounded-xl border border-outline/10 transition-colors">
                   <LinkIcon size={18} className="text-primary" />
                   <span className="text-sm font-medium">Copy Link</span>
                 </button>
-                <button className="w-full flex items-center gap-3 bg-surface-container-low hover:bg-surface-variant p-3 rounded-xl border border-outline/10 transition-colors">
+                <button onClick={() => { showToast("Opening Twitter..."); setIsShareOpen(false); }} className="w-full flex items-center gap-3 bg-surface-container-low hover:bg-surface-variant p-3 rounded-xl border border-outline/10 transition-colors">
                   <Twitter size={18} className="text-[#1DA1F2]" />
                   <span className="text-sm font-medium">Share to Twitter</span>
                 </button>
-                <button className="w-full flex items-center gap-3 bg-surface-container-low hover:bg-surface-variant p-3 rounded-xl border border-outline/10 transition-colors">
+                <button onClick={() => { showToast("Opening Facebook..."); setIsShareOpen(false); }} className="w-full flex items-center gap-3 bg-surface-container-low hover:bg-surface-variant p-3 rounded-xl border border-outline/10 transition-colors">
                   <Facebook size={18} className="text-[#4267B2]" />
                   <span className="text-sm font-medium">Share to Facebook</span>
                 </button>
@@ -468,6 +537,7 @@ const ActiveVariants = () => {
   const [sortBy, setSortBy] = useState('score');
   const [filterQuality, setFilterQuality] = useState('All');
   const [selectedVariants, setSelectedVariants] = useState<string[]>(['v1']); // Default select the top one
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const handleDelete = (id: string) => {
     setVariants(variants.filter(v => v.id !== id));
@@ -522,17 +592,17 @@ const ActiveVariants = () => {
           </div>
 
           <div className="flex gap-1.5 p-1 bg-surface-container-low/40 rounded-lg border border-outline/5 ml-2">
-            <button className="p-1.5 rounded-md bg-surface-variant/60 text-primary">
+            <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-surface-variant/60 text-primary' : 'text-on-surface-variant/40 hover:text-on-surface'}`}>
               <LayoutGrid size={16} strokeWidth={1.5} />
             </button>
-            <button className="p-1.5 rounded-md text-on-surface-variant/40 hover:text-on-surface transition-colors">
+            <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-surface-variant/60 text-primary' : 'text-on-surface-variant/40 hover:text-on-surface'}`}>
               <List size={16} strokeWidth={1.5} />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}>
         <AnimatePresence>
           {filteredAndSortedVariants.map((variant, index) => (
             <motion.div
@@ -629,7 +699,21 @@ const BrainSimulation = () => {
 
 
 
-const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => (
+const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClose?: () => void }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const { showToast } = useToast();
+
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    setTimeout(() => {
+      setIsGenerating(false);
+      setShowModal(true);
+      showToast("Neuro-Report generated successfully");
+    }, 2000);
+  };
+
+  return (
   <aside className={`overflow-y-auto custom-scrollbar glass-panel flex flex-col gap-12 ${className}`}>
     {onClose && (
       <div className="flex justify-end xl:hidden mb-[-2rem]">
@@ -668,7 +752,7 @@ const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClo
     <section className="flex-1 flex flex-col">
       <div className="flex justify-between items-center mb-10">
         <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Engagement Delta</h3>
-        <Info className="text-on-surface-variant/40 hover:text-on-surface cursor-pointer" size={18} strokeWidth={1.5} />
+        <Info onClick={() => showToast("Engagement Delta compares variant performance against the baseline.")} className="text-on-surface-variant/40 hover:text-on-surface cursor-pointer" size={18} strokeWidth={1.5} />
       </div>
       <div className="flex-1 flex items-end justify-between px-4 min-h-[160px]">
         <div className="flex flex-col items-center gap-4 group">
@@ -702,20 +786,416 @@ const AnalyticsPanel = ({ className = "", onClose }: { className?: string, onClo
       </div>
     </section>
 
-    <button className="w-full bg-surface-variant/40 hover:bg-white/5 py-3.5 rounded-xl border border-outline/10 font-headline font-bold text-[9px] uppercase tracking-[0.2em] transition-all text-on-surface-variant/80 hover:text-on-surface">
-      Generate Neuro-Report
+    <button 
+      onClick={handleGenerate}
+      disabled={isGenerating}
+      className="w-full bg-surface-variant/40 hover:bg-white/5 py-3.5 rounded-xl border border-outline/10 font-headline font-bold text-[9px] uppercase tracking-[0.2em] transition-all text-on-surface-variant/80 hover:text-on-surface flex items-center justify-center gap-2"
+    >
+      {isGenerating ? <Loader2 size={14} className="animate-spin" /> : null}
+      {isGenerating ? 'Generating...' : 'Generate Neuro-Report'}
     </button>
+
+    <AnimatePresence>
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-surface-container-high border border-outline/20 p-8 rounded-2xl w-[400px] shadow-2xl"
+          >
+            <div className="flex justify-between items-start mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/20 p-2 rounded-lg text-primary">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <h3 className="font-headline font-bold text-lg">Neuro-Report Ready</h3>
+                  <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Variant A - Analysis</p>
+                </div>
+              </div>
+              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-on-surface"><X size={20} /></button>
+            </div>
+            <div className="space-y-4 mb-8">
+              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                <CheckCircle size={16} className="text-tertiary" />
+                <span>Subconscious recall analysis complete</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                <CheckCircle size={16} className="text-tertiary" />
+                <span>Frequency profile mapped to target</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+                <CheckCircle size={16} className="text-tertiary" />
+                <span>Emotional arc trajectory verified</span>
+              </div>
+            </div>
+            <button onClick={() => { showToast("Downloading report..."); setShowModal(false); }} className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors">
+              <Download size={16} />
+              Download PDF
+            </button>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   </aside>
+  );
+};
+
+const ProjectContextBar = ({ project }: { project: any }) => {
+  if (!project) return null;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-surface-container-low/30 border border-outline/10 rounded-2xl p-4 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
+    >
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[9px] bg-primary/20 text-primary px-2 py-0.5 rounded uppercase tracking-widest font-bold">Active Project</span>
+          <h2 className="text-lg font-headline font-bold text-on-surface">{project.projectName || 'Untitled Project'}</h2>
+        </div>
+        <p className="text-xs text-on-surface-variant">{project.goal || 'No specific goal set'}</p>
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col items-end">
+          <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Attached Sources</span>
+          <div className="flex -space-x-2">
+            {project.uploadedFiles.map((file: any, i: number) => (
+              <div key={i} className="w-8 h-8 rounded-full bg-surface-container-high border-2 border-background flex items-center justify-center text-primary relative group cursor-pointer">
+                {file.name.endsWith('.pdf') ? <FileText size={12} /> : <FileAudio size={12} />}
+                <span className="absolute -bottom-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-highest text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">
+                  {file.name}
+                </span>
+              </div>
+            ))}
+            {project.uploadedFiles.length === 0 && (
+              <span className="text-xs text-on-surface-variant italic">No files attached</span>
+            )}
+          </div>
+        </div>
+        <button className="bg-surface-container hover:bg-surface-variant p-2 rounded-lg border border-outline/10 text-on-surface-variant hover:text-on-surface transition-colors">
+          <Settings size={16} />
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+const MemoryCategory = ({ title, tags, color, bg, border }: { title: string, tags: string[], color: string, bg: string, border: string }) => (
+  <div className={`p-4 rounded-2xl border ${border} ${bg} flex flex-col justify-between`}>
+    <h4 className={`text-[9px] uppercase tracking-widest font-bold mb-3 ${color}`}>{title}</h4>
+    <div className="flex flex-wrap gap-1.5">
+      {tags.map(t => (
+        <span key={t} className="text-[10px] bg-black/20 px-2 py-1 rounded-md text-on-surface/80 border border-white/5">{t}</span>
+      ))}
+    </div>
+  </div>
 );
+
+const CreativeMemoryBase = ({ isIngesting, project }: { isIngesting: boolean, project: any }) => {
+  if (!project) return null;
+
+  if (isIngesting) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 'auto' }}
+        className="bg-surface-container-low/30 border border-primary/20 rounded-2xl p-6 mb-8 relative overflow-hidden"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[shimmer_2s_infinite] w-[200%] -translate-x-1/2"></div>
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="bg-primary/20 p-3 rounded-xl text-primary">
+            <Loader2 className="animate-spin" size={24} />
+          </div>
+          <div>
+            <h3 className="text-sm font-headline font-bold text-primary">Ingesting Creative Inputs...</h3>
+            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Extracting brand language, emotional cues, and tone patterns</p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      className="bg-surface-container-low/30 border border-outline/10 rounded-2xl p-6 mb-8"
+    >
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 p-2 rounded-lg text-primary">
+            <Database size={18} />
+          </div>
+          <div>
+            <h3 className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface">Extracted Intelligence Base</h3>
+            <p className="text-[10px] text-on-surface-variant mt-0.5">Turbopuffer memory ready for semantic search</p>
+          </div>
+        </div>
+        <div className="text-[10px] bg-surface-variant/50 text-on-surface-variant px-3 py-1 rounded-full flex items-center gap-1.5">
+          <Sparkles size={12} className="text-tertiary" />
+          <span>{project.uploadedFiles.length} Sources Indexed</span>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <MemoryCategory title="Brand Language" tags={["Premium", "Clinical", "Effortless"]} color="text-primary" bg="bg-primary/5" border="border-primary/20" />
+        <MemoryCategory title="Customer Phrases" tags={["Glowing skin", "Finally found it", "Holy grail"]} color="text-on-surface" bg="bg-surface-container-high" border="border-outline/10" />
+        <MemoryCategory title="Emotional Cues" tags={["Confidence", "Relief", "Aspirational"]} color="text-tertiary" bg="bg-tertiary/5" border="border-tertiary/20" />
+        <MemoryCategory title="Product Benefits" tags={["Deep Hydration", "Anti-aging", "Fast absorbing"]} color="text-on-surface" bg="bg-surface-container-high" border="border-outline/10" />
+        <MemoryCategory title="Past References" tags={["Summer '23", "Competitor X"]} color="text-on-surface" bg="bg-surface-container-high" border="border-outline/10" />
+        <MemoryCategory title="Tone Patterns" tags={["Upbeat", "Authoritative", "Warm"]} color="text-secondary" bg="bg-secondary/5" border="border-secondary/20" />
+      </div>
+    </motion.div>
+  );
+};
+
+const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClose: () => void, onCreate: (data: any) => void }) => {
+  const [projectName, setProjectName] = useState('');
+  const [campaignType, setCampaignType] = useState('audio-ad');
+  const [goal, setGoal] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  if (!isOpen) return null;
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setUploadedFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setUploadedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const handleCreate = () => {
+    onCreate({ projectName, campaignType, goal, uploadedFiles });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="bg-surface-container-low border border-outline/20 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+      >
+        <div className="p-6 border-b border-outline/10 flex justify-between items-center bg-surface-container-lowest">
+          <div>
+            <h2 className="text-xl font-headline font-bold text-on-surface">New Project</h2>
+            <p className="text-xs text-on-surface-variant mt-1">Initialize a new creative workspace</p>
+          </div>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface p-2 rounded-full hover:bg-white/5 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+          {/* Project Details */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Project Name</label>
+                <input 
+                  type="text" 
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="e.g., Summer Skincare Campaign"
+                  className="w-full bg-surface-container/50 border border-outline/10 rounded-xl px-4 py-3 text-sm text-on-surface focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-on-surface-variant/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Campaign Type</label>
+                <select 
+                  value={campaignType}
+                  onChange={(e) => setCampaignType(e.target.value)}
+                  className="w-full bg-surface-container/50 border border-outline/10 rounded-xl px-4 py-3 text-sm text-on-surface focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all appearance-none"
+                >
+                  <option value="audio-ad">Audio Ad</option>
+                  <option value="ugc-trailer">UGC Trailer</option>
+                  <option value="podcast-promo">Podcast Promo</option>
+                  <option value="sonic-branding">Sonic Branding</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Creative Inputs */}
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant flex items-center justify-between">
+              Creative Inputs
+              <span className="text-on-surface-variant/50 font-normal normal-case tracking-normal">Briefs, scripts, references</span>
+            </label>
+            
+            <div 
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${isDragging ? 'border-primary bg-primary/5' : 'border-outline/20 bg-surface-container/30 hover:bg-surface-container/50 hover:border-outline/30'}`}
+            >
+              <div className="w-12 h-12 bg-surface-variant rounded-full flex items-center justify-center mx-auto mb-4 text-on-surface-variant">
+                <UploadCloud size={24} />
+              </div>
+              <p className="text-sm font-medium text-on-surface mb-1">Drag and drop files here</p>
+              <p className="text-xs text-on-surface-variant mb-4">PDF, DOCX, MP3, WAV up to 50MB</p>
+              <input 
+                type="file" 
+                multiple 
+                className="hidden" 
+                ref={fileInputRef} 
+                onChange={handleFileSelect} 
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-surface-container-high hover:bg-surface-variant text-on-surface text-xs font-medium px-4 py-2 rounded-lg transition-colors border border-outline/10"
+              >
+                Browse Files
+              </button>
+            </div>
+
+            {/* Uploaded Files List */}
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2 mt-4">
+                {uploadedFiles.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-surface-container/40 border border-outline/10 rounded-xl p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                        {file.name.endsWith('.pdf') ? <FileText size={16} /> : <FileAudio size={16} />}
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-on-surface">{file.name}</p>
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setUploadedFiles(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-on-surface-variant hover:text-error p-2 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Goal */}
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Objective / Goal (Optional)</label>
+            <textarea 
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              placeholder="What are we trying to achieve?"
+              className="w-full bg-surface-container/50 border border-outline/10 rounded-xl px-4 py-3 text-sm text-on-surface focus:border-primary/50 focus:ring-1 focus:ring-primary/50 outline-none transition-all placeholder:text-on-surface-variant/30 min-h-[80px] resize-none"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setGoal("Generate premium skincare audio ad")} className="text-[10px] bg-surface-container hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Generate premium skincare audio ad"</button>
+              <button onClick={() => setGoal("Create Gen Z UGC trailer variants")} className="text-[10px] bg-surface-container hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Create Gen Z UGC trailer variants"</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-outline/10 bg-surface-container-lowest flex justify-end gap-3">
+          <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:bg-white/5 transition-colors">
+            Cancel
+          </button>
+          <button 
+            onClick={handleCreate}
+            disabled={!projectName && uploadedFiles.length === 0}
+            className="px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Plus size={16} /> Create Project
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 export default function App() {
   const [isLeftMenuOpen, setIsLeftMenuOpen] = useState(false);
   const [isRightMenuOpen, setIsRightMenuOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
+  const [currentProject, setCurrentProject] = useState<any>(null);
+  const [isIngesting, setIsIngesting] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleCreateProject = async (projectData: any) => {
+    const projectId = `proj_${Date.now()}`;
+    const projectWithId = { ...projectData, projectId };
+    setCurrentProject(projectWithId);
+    setIsIngesting(true);
+    showToast(`Project "${projectData.projectName || 'Untitled'}" created successfully`);
+    
+    try {
+      // Save to Dexie
+      await db.projects.add({
+        projectId,
+        projectName: projectData.projectName,
+        campaignType: projectData.campaignType,
+        goal: projectData.goal,
+        createdAt: new Date()
+      });
+
+      for (const file of projectData.uploadedFiles) {
+        await db.files.add({
+          projectId,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data: file
+        });
+      }
+
+      const formData = new FormData();
+      formData.append('projectId', projectId);
+      formData.append('projectName', projectData.projectName);
+      formData.append('campaignType', projectData.campaignType);
+      formData.append('goal', projectData.goal);
+      
+      projectData.uploadedFiles.forEach((f: File) => {
+        formData.append('files', f);
+      });
+
+      const response = await fetch('/api/projects/ingest', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Ingestion failed');
+      
+      const result = await response.json();
+      console.log('Ingestion result:', result);
+      
+      setIsIngesting(false);
+      showToast("Creative inputs ingested and indexed.");
+    } catch (error) {
+      console.error(error);
+      setIsIngesting(false);
+      showToast("Ingestion completed with warnings (mocked).");
+    }
+  };
 
   return (
+    <ToastContext.Provider value={{ showToast }}>
     <div className="flex h-screen overflow-hidden bg-background text-on-surface selection:bg-primary/30 selection:text-on-surface antialiased">
       {/* Desktop Sidebar */}
-      <Sidebar className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" />
+      <Sidebar onNewProject={() => setIsNewProjectModalOpen(true)} className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" />
       
       {/* Left Mobile Sidebar Overlay */}
       <AnimatePresence>
@@ -730,7 +1210,7 @@ export default function App() {
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               className="fixed inset-y-0 left-0 z-[70] w-64 bg-background border-r border-outline/10 shadow-2xl lg:hidden"
             >
-              <Sidebar className="h-full w-full border-none" onClose={() => setIsLeftMenuOpen(false)} />
+              <Sidebar onNewProject={() => setIsNewProjectModalOpen(true)} className="h-full w-full border-none" onClose={() => setIsLeftMenuOpen(false)} />
             </motion.div>
           </>
         )}
@@ -759,6 +1239,10 @@ export default function App() {
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-background w-full">
           <Header onLeftMenuClick={() => setIsLeftMenuOpen(true)} onRightMenuClick={() => setIsRightMenuOpen(true)} />
           <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-10 md:space-y-16">
+            <div>
+              <ProjectContextBar project={currentProject} />
+              <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
+            </div>
             <Hero />
             <Controls />
             <ActiveVariants />
@@ -767,6 +1251,31 @@ export default function App() {
         {/* Analytics Panel for Desktop */}
         <AnalyticsPanel className="hidden xl:flex w-96 border-l border-outline/5 p-10" />
       </main>
+
+      <AnimatePresence>
+        {isNewProjectModalOpen && (
+          <NewProjectModal 
+            isOpen={isNewProjectModalOpen} 
+            onClose={() => setIsNewProjectModalOpen(false)} 
+            onCreate={handleCreateProject} 
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, x: '-50%' }}
+            animate={{ opacity: 1, y: 0, x: '-50%' }}
+            exit={{ opacity: 0, y: 20, x: '-50%' }}
+            className="fixed bottom-6 left-1/2 z-[200] bg-surface-container-highest text-on-surface px-6 py-3 rounded-full shadow-2xl border border-outline/10 text-sm font-medium flex items-center gap-3"
+          >
+            <CheckCircle size={16} className="text-primary" />
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+    </ToastContext.Provider>
   );
 }
