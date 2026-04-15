@@ -5,12 +5,15 @@ import { GoogleGenAI } from "@google/genai";
 import { ElevenLabsClient } from "elevenlabs";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-
 app.use(express.json());
+
+// Add health check for easier debugging
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 // ─── TRIBE v2 Intelligence Engine System Prompt ─────────────────────────────
 
@@ -260,8 +263,15 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
       try {
         let text = "";
         if (file.originalname.endsWith(".pdf")) {
-          const data = await pdfParse(file.buffer);
-          text = data.text;
+          console.log(`[Ingestion] Parsing PDF: ${file.originalname}`);
+          try {
+            const pdfParse = require("pdf-parse");
+            const data = await pdfParse(file.buffer);
+            text = data.text;
+          } catch (pdfError) {
+            console.error(`[Ingestion] pdf-parse failed for ${file.originalname}:`, pdfError);
+            throw new Error(`PDF parsing failed for ${file.originalname}. The file might be corrupted or too large.`);
+          }
         } else {
           text = file.buffer.toString("utf-8");
         }

@@ -1270,10 +1270,20 @@ export default function App() {
         body: formData,
       });
 
-      const result = await response.json();
+      let errorMessage = 'Ingestion failed';
+      let result = null;
+
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+        if (result && result.error) errorMessage = result.error;
+      } else {
+        // Not JSON, likely a server crash error page
+        errorMessage = `Server Error (${response.status}): The server encountered an error and could not return a valid response.`;
+      }
       
       if (!response.ok) {
-        throw new Error(result.error || 'Ingestion failed');
+        throw new Error(errorMessage);
       }
       
       console.log('Ingestion result:', result);
