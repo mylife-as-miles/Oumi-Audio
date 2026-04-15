@@ -1019,19 +1019,6 @@ const BrainSimulation = () => {
 
 
 const AnalyticsPanel = ({ className = "", onClose, neuralInsights, isNeuralLoading }: { className?: string, onClose?: () => void, neuralInsights: NeuralInsights | null, isNeuralLoading: boolean }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const { showToast } = useToast();
-
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setShowModal(true);
-      showToast("Neuro-Report generated successfully");
-    }, 2000);
-  };
-
   return (
   <aside className={`overflow-y-auto custom-scrollbar glass-panel flex flex-col gap-12 ${className}`}>
     {onClose && (
@@ -1042,127 +1029,22 @@ const AnalyticsPanel = ({ className = "", onClose, neuralInsights, isNeuralLoadi
       </div>
     )}
 
-    {/* Neural Insights — when available, replaces static recommendation */}
+    {/* Neural Insights — or empty state */}
     {(neuralInsights || isNeuralLoading) ? (
       <NeuralInsightsPanel insights={neuralInsights} isLoading={isNeuralLoading} />
     ) : (
-      <section>
-        <div className="flex items-center gap-2 mb-6">
-          <BadgeCheck className="text-tertiary" size={18} fill="currentColor" stroke="black" />
-          <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Recommended Asset</h3>
+      <section className="flex flex-col items-center text-center py-8 px-4">
+        <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
+          <Brain className="text-primary/60" size={26} />
         </div>
-        <div className="bg-gradient-to-b from-surface-container-high/40 to-surface-container-low/20 p-6 rounded-2xl border border-tertiary/10 shadow-lg">
-          <div className="flex justify-between items-center mb-6">
-            <span className="text-sm font-headline font-bold text-on-surface">Variant A</span>
-            <span className="text-xs font-bold text-tertiary">92.4% Recall</span>
-          </div>
-          <div className="space-y-4 mb-6">
-            <p className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold">Insights</p>
-            <div className="p-4 bg-black/30 rounded-xl border border-outline/5">
-              <p className="text-[11px] text-on-surface/90 leading-relaxed font-light">
-                <span className="text-tertiary font-medium">Neural Match:</span> Highest subconscious recall detected at 0:08 sequence. Frequency profile matches target audience baseline for "Premium Tech" vertical.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 text-[10px] text-on-surface-variant/70">
-            <TrendingUp size={16} strokeWidth={1.5} />
-            <span>Confidence Score: High</span>
-          </div>
-        </div>
+        <h3 className="text-xs font-headline font-bold text-on-surface mb-2">No Analysis Yet</h3>
+        <p className="text-[11px] text-on-surface-variant/60 leading-relaxed max-w-[220px]">
+          Generate audio variants, then click the <span className="inline-flex items-center gap-1 text-primary font-medium">🧠 analyze</span> button on any variant to see neural insights here.
+        </p>
       </section>
     )}
 
     <BrainSimulation />
-
-    <section className="flex-1 flex flex-col">
-      <div className="flex justify-between items-center mb-10">
-        <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">Engagement Delta</h3>
-        <Info onClick={() => showToast("Engagement Delta compares variant performance against the baseline.")} className="text-on-surface-variant/40 hover:text-on-surface cursor-pointer" size={18} strokeWidth={1.5} />
-      </div>
-      <div className="flex-1 flex items-end justify-between px-4 min-h-[160px]">
-        <div className="flex flex-col items-center gap-4 group">
-          <div className="w-8 bg-surface-container-high rounded-full h-[35%] transition-all group-hover:bg-outline/30"></div>
-          <span className="text-[9px] font-bold text-on-surface-variant/40">V-C</span>
-        </div>
-        <div className="flex flex-col items-center gap-4 group">
-          <div className="w-8 bg-secondary/20 rounded-full h-[60%] transition-all group-hover:bg-secondary/40"></div>
-          <span className="text-[9px] font-bold text-secondary/70">V-B</span>
-        </div>
-        <div className="flex flex-col items-center gap-4 group">
-          <div className="w-8 bg-tertiary rounded-full h-[95%] shadow-lg shadow-tertiary/10 transition-all group-hover:scale-y-105 origin-bottom"></div>
-          <span className="text-[9px] font-bold text-tertiary">V-A</span>
-        </div>
-      </div>
-      <div className="mt-12 space-y-3">
-        <div className="flex justify-between items-center p-3.5 bg-white/[0.02] rounded-xl border border-outline/5">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
-            <span className="text-[11px] font-light text-on-surface-variant">Memory Retention</span>
-          </div>
-          <span className="text-[11px] font-semibold text-tertiary">+14.2%</span>
-        </div>
-        <div className="flex justify-between items-center p-3.5 bg-white/[0.02] rounded-xl border border-outline/5">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-secondary"></div>
-            <span className="text-[11px] font-light text-on-surface-variant">Brand Affinity</span>
-          </div>
-          <span className="text-[11px] font-semibold text-secondary">+5.8%</span>
-        </div>
-      </div>
-    </section>
-
-    <button 
-      onClick={handleGenerate}
-      disabled={isGenerating}
-      className="w-full bg-surface-variant/40 hover:bg-white/5 py-3.5 rounded-xl border border-outline/10 font-headline font-bold text-[9px] uppercase tracking-[0.2em] transition-all text-on-surface-variant/80 hover:text-on-surface flex items-center justify-center gap-2"
-    >
-      {isGenerating ? <Loader2 size={14} className="animate-spin" /> : null}
-      {isGenerating ? 'Generating...' : 'Generate Neuro-Report'}
-    </button>
-
-    <AnimatePresence>
-      {showModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <motion.div 
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-surface-container-high border border-outline/20 p-8 rounded-2xl w-[400px] shadow-2xl"
-          >
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary/20 p-2 rounded-lg text-primary">
-                  <FileText size={24} />
-                </div>
-                <div>
-                  <h3 className="font-headline font-bold text-lg">Neuro-Report Ready</h3>
-                  <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Variant A - Analysis</p>
-                </div>
-              </div>
-              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-on-surface"><X size={20} /></button>
-            </div>
-            <div className="space-y-4 mb-8">
-              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
-                <CheckCircle size={16} className="text-tertiary" />
-                <span>Subconscious recall analysis complete</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
-                <CheckCircle size={16} className="text-tertiary" />
-                <span>Frequency profile mapped to target</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm text-on-surface-variant">
-                <CheckCircle size={16} className="text-tertiary" />
-                <span>Emotional arc trajectory verified</span>
-              </div>
-            </div>
-            <button onClick={() => { showToast("Downloading report..."); setShowModal(false); }} className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors">
-              <Download size={16} />
-              Download PDF
-            </button>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
   </aside>
   );
 };
