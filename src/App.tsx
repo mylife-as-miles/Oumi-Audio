@@ -1452,12 +1452,12 @@ export default function App() {
       <main className="lg:ml-60 flex flex-col xl:flex-row h-screen w-full">
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-background w-full">
           <Header onLeftMenuClick={() => setIsLeftMenuOpen(true)} onRightMenuClick={() => setIsRightMenuOpen(true)} />
+          <div className="px-4 md:px-10"><Hero /></div>
           <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
             <div>
               <ProjectContextBar project={currentProject} />
               <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
             </div>
-            <Hero />
             <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
             <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
             
