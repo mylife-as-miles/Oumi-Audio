@@ -501,58 +501,10 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete }: { 
   );
 };
 
-const initialVariants = [
-  {
-    id: 'v1',
-    name: 'Urban Beat v4.2',
-    type: 'High Resonance',
-    typeColor: 'text-tertiary',
-    bgType: 'bg-tertiary',
-    timeAgo: '2m ago',
-    timestamp: Date.now() - 2 * 60000,
-    quality: 'Lossless',
-    sampleRate: '48kHz',
-    duration: '0:30.00',
-    score: 92,
-    memoryRetention: '+14.2%',
-    brandAffinity: '+5.8%'
-  },
-  {
-    id: 'v2',
-    name: 'Morning Flow v1.0',
-    type: 'Minimalist',
-    typeColor: 'text-secondary',
-    bgType: 'bg-secondary',
-    timeAgo: '15m ago',
-    timestamp: Date.now() - 15 * 60000,
-    quality: 'Lossless',
-    sampleRate: '48kHz',
-    duration: '0:15.00',
-    score: 85,
-    memoryRetention: '+8.4%',
-    brandAffinity: '+3.2%'
-  },
-  {
-    id: 'v3',
-    name: 'Neon Drive v2',
-    type: 'Synthwave',
-    typeColor: 'text-primary',
-    bgType: 'bg-primary',
-    timeAgo: '1h ago',
-    timestamp: Date.now() - 60 * 60000,
-    quality: 'High',
-    sampleRate: '44.1kHz',
-    duration: '0:45.00',
-    score: 78,
-    memoryRetention: '+5.1%',
-    brandAffinity: '+2.1%'
-  }
-];
-
 const ActiveVariants = ({ variants, setVariants }: { variants: any[], setVariants: React.Dispatch<React.SetStateAction<any[]>> }) => {
   const [sortBy, setSortBy] = useState('score');
   const [filterQuality, setFilterQuality] = useState('All');
-  const [selectedVariants, setSelectedVariants] = useState<string[]>(['v1']); // Default select the top one
+  const [selectedVariants, setSelectedVariants] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const handleDelete = (id: string) => {
@@ -574,6 +526,25 @@ const ActiveVariants = ({ variants, setVariants }: { variants: any[], setVariant
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       return 0;
     });
+
+  if (variants.length === 0) {
+    return (
+      <section className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h3 className="font-headline text-[11px] uppercase tracking-[0.25em] font-bold text-on-surface-variant">Active Variants</h3>
+        </div>
+        <div className="bg-surface-container-low/20 border border-outline/5 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center text-center">
+          <div className="w-16 h-16 rounded-full bg-surface-variant/30 flex items-center justify-center mb-4">
+            <Sparkles size={24} className="text-on-surface-variant/50" />
+          </div>
+          <h4 className="text-sm font-headline font-bold text-on-surface mb-2">No variants generated yet</h4>
+          <p className="text-xs text-on-surface-variant/60 max-w-sm">
+            Upload your creative inputs, search your memory, and generate premium audio variants to see them here.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-6">
@@ -1145,7 +1116,7 @@ export default function App() {
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<any>(null);
   const [isIngesting, setIsIngesting] = useState(false);
-  const [variants, setVariants] = useState<any[]>(initialVariants);
+  const [variants, setVariants] = useState<any[]>([]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
