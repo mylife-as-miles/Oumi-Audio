@@ -400,29 +400,12 @@ const Sidebar = ({ className = "", onClose, onNewProject }: { className?: string
 };
 
 const Header = ({ onLeftMenuClick, onRightMenuClick }: { onLeftMenuClick: () => void, onRightMenuClick: () => void }) => {
-  const { showToast } = useToast();
   return (
     <header className="sticky top-0 right-0 w-full h-14 flex items-center justify-between px-4 md:px-10 z-40 glass-nav border-b border-outline/5">
       <div className="flex-1 flex justify-start">
         <button className="lg:hidden text-on-surface-variant hover:text-on-surface" onClick={onLeftMenuClick}>
           <Menu size={24} />
         </button>
-      </div>
-      <div className="flex-1 flex justify-center xl:justify-end">
-        <div className="relative flex items-center group">
-          <Search className="absolute left-3 text-on-surface-variant/50" size={18} strokeWidth={1.5} />
-          <input 
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                showToast(`Searching projects for "${e.currentTarget.value}"...`);
-                e.currentTarget.value = '';
-              }
-            }}
-            className="bg-surface-container-low/40 border-none rounded-md py-1.5 pl-9 pr-4 text-[9px] font-headline tracking-[0.1em] text-on-surface focus:ring-1 focus:ring-primary/30 focus:outline-none w-40 md:w-52 transition-all placeholder:text-on-surface-variant/40" 
-            placeholder="SEARCH PROJECTS..." 
-            type="text" 
-          />
-        </div>
       </div>
       <div className="flex-1 flex justify-end">
         <button className="xl:hidden text-on-surface-variant hover:text-on-surface" onClick={onRightMenuClick}>
