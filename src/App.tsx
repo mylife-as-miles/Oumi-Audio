@@ -507,21 +507,7 @@ const Hero = () => {
 };
 
 const Controls = ({ onGenerate, onAnalyzeAll, variants, isAnalyzing }: { onGenerate: () => void, onAnalyzeAll: () => void, variants: any[], isAnalyzing: boolean }) => {
-  const { showToast } = useToast();
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleSearch = (query?: string) => {
-    const q = query || searchQuery;
-    if (!q) return;
-    setIsSearching(true);
-    if (query) setSearchQuery(query);
-    setTimeout(() => {
-      setIsSearching(false);
-      showToast(`Search completed for "${q}"`);
-    }, 1500);
-  };
 
   const handleGenerateClick = async () => {
     setIsGenerating(true);
@@ -530,116 +516,26 @@ const Controls = ({ onGenerate, onAnalyzeAll, variants, isAnalyzing }: { onGener
   };
 
   return (
-  <section className="space-y-8">
-    {/* Search Bar Area */}
-    <div className="space-y-4">
-      <div className="flex justify-between items-center px-1">
-        <label className="text-xs uppercase tracking-[0.2em] text-primary font-bold flex items-center gap-2">
-          <Brain size={16} /> Semantic Search
-        </label>
-        <span className="text-[10px] text-on-surface-variant/60 font-light uppercase tracking-widest">Creative Memory Engine</span>
-      </div>
-      <div className="relative group">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-        <input 
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          className="relative w-full bg-surface-container-low/80 border border-outline/20 rounded-2xl py-5 pl-14 pr-24 text-sm text-on-surface focus:ring-2 focus:ring-primary/50 focus:border-primary/50 focus:outline-none transition-all placeholder:text-on-surface-variant/50 shadow-lg" 
-          placeholder="Search creative memory for sonic profiles, pacing, or emotional arcs..." 
-          type="text" 
-        />
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary/80" size={24} strokeWidth={1.5} />
+  <section className="space-y-4">
+    <div className="flex flex-wrap items-center gap-4">
+      <button 
+        onClick={handleGenerateClick}
+        disabled={isGenerating}
+        className="bg-primary text-on-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
+      >
+        {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+        {isGenerating ? 'Generating...' : 'Generate Audio Variants'}
+      </button>
+      {variants.length > 0 && (
         <button 
-          onClick={() => handleSearch()}
-          disabled={isSearching}
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-widest font-bold transition-colors flex items-center gap-2"
+          onClick={onAnalyzeAll}
+          disabled={isAnalyzing}
+          className="bg-tertiary/10 text-tertiary px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-tertiary/20 transition-colors flex items-center gap-2 border border-tertiary/20"
         >
-          {isSearching ? <Loader2 size={14} className="animate-spin" /> : null}
-          {isSearching ? 'Searching' : 'Search'}
+          {isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+          {isAnalyzing ? 'Analyzing...' : 'Analyze All with TRIBE v2'}
         </button>
-      </div>
-
-      {/* Suggestions & Recents */}
-      <div className="flex flex-wrap items-center gap-3 pt-2">
-        <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold mr-2">Suggestions:</span>
-        <button onClick={() => handleSearch("Upbeat Gen-Z UGC")} className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Upbeat Gen-Z UGC"</button>
-        <button onClick={() => handleSearch("Cinematic suspense build")} className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Cinematic suspense build"</button>
-        <button onClick={() => handleSearch("Lo-fi study beats")} className="text-[10px] bg-surface-container/50 hover:bg-surface-variant border border-outline/10 px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors">"Lo-fi study beats"</button>
-        <div className="w-px h-4 bg-outline/20 mx-2 hidden sm:block"></div>
-        <span className="text-[9px] uppercase tracking-widest text-on-surface-variant/60 font-bold mr-2 flex items-center gap-1"><History size={12}/> Recent:</span>
-        <button onClick={() => handleSearch("Corporate tech promo")} className="text-[10px] text-on-surface-variant/60 hover:text-primary transition-colors underline decoration-outline/30 underline-offset-4">"Corporate tech promo"</button>
-      </div>
-    </div>
-
-    {/* Top Memory Matches & Sliders */}
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      <div className="lg:col-span-7 space-y-4">
-        <label className="text-[10px] uppercase tracking-[0.2em] text-on-surface-variant/80 font-bold flex items-center gap-2">
-          Top Memory Matches
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Match Card 1 */}
-          <div onClick={() => showToast("Loading Project: Neon Pulse")} className="bg-surface-container-low/30 border border-outline/10 p-4 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[9px] text-tertiary uppercase tracking-widest font-bold bg-tertiary/10 px-2 py-0.5 rounded">98% Match</span>
-              <Play size={14} className="text-on-surface-variant group-hover:text-primary transition-colors" />
-            </div>
-            <h5 className="text-sm font-headline font-semibold text-on-surface mb-1">Project: Neon Pulse</h5>
-            <p className="text-[10px] text-on-surface-variant/60 line-clamp-2">High-BPM electronic track with aggressive synth bass and rising risers.</p>
-          </div>
-          {/* Match Card 2 */}
-          <div onClick={() => showToast("Loading Asset: Cyberpunk Ad")} className="bg-surface-container-low/30 border border-outline/10 p-4 rounded-xl hover:border-primary/30 transition-colors cursor-pointer group">
-            <div className="flex justify-between items-start mb-2">
-              <span className="text-[9px] text-secondary uppercase tracking-widest font-bold bg-secondary/10 px-2 py-0.5 rounded">85% Match</span>
-              <Play size={14} className="text-on-surface-variant group-hover:text-primary transition-colors" />
-            </div>
-            <h5 className="text-sm font-headline font-semibold text-on-surface mb-1">Asset: Cyberpunk Ad</h5>
-            <p className="text-[10px] text-on-surface-variant/60 line-clamp-2">Gritty industrial soundscape with heavy percussion and distorted vocals.</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-8 bg-surface-container-low/20 p-6 rounded-2xl border border-outline/5 relative">
-        <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm z-10 rounded-2xl opacity-0 hover:opacity-100 transition-opacity duration-300">
-          <div className="flex flex-col items-center gap-3">
-            <button 
-              onClick={handleGenerateClick}
-              disabled={isGenerating}
-              className="bg-primary text-on-primary px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-lg shadow-primary/20"
-            >
-              {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-              {isGenerating ? 'Generating...' : 'Generate Audio Variants'}
-            </button>
-            {variants.length > 0 && (
-              <button 
-                onClick={onAnalyzeAll}
-                disabled={isAnalyzing}
-                className="bg-tertiary/10 text-tertiary px-5 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-tertiary/20 transition-colors flex items-center gap-2 border border-tertiary/20"
-              >
-                {isAnalyzing ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
-                {isAnalyzing ? 'Analyzing...' : 'Analyze All with TRIBE v2'}
-              </button>
-            )}
-          </div>
-        </div>
-        <div className="space-y-4">
-          <label className="text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/80 font-bold flex justify-between">
-            AI Intensity <span className="text-tertiary font-medium">84%</span>
-          </label>
-          <div className="h-1 w-full bg-surface-container-highest rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-primary to-tertiary w-[84%]"></div>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <label className="text-[9px] uppercase tracking-[0.2em] text-on-surface-variant/80 font-bold flex justify-between">
-            Tone Velocity <span className="text-secondary font-medium">Mid</span>
-          </label>
-          <div className="h-1 w-full bg-surface-container-highest rounded-full relative overflow-hidden">
-            <div className="absolute inset-0 bg-secondary/60 w-1/3 left-1/3"></div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   </section>
   );
