@@ -84,24 +84,34 @@ RULES:
 // ─── Helper: Connect to TRIBE v2 and analyze text ──────────────────────────
 
 async function analyzeTribeText(text: string): Promise<{ plot: any; markdown: string; pdf: any }> {
-  // Dynamic import for ESM-only @gradio/client
-  const { Client } = await import("@gradio/client");
+  const timeout = 6000; // 6 second safety cutoff
   
-  const hfToken = process.env.HF_TOKEN || undefined;
-  const connectOptions: Record<string, unknown> = {};
-  if (hfToken) connectOptions.hf_token = hfToken;
-  const client = await Client.connect("Reino0ne/tribev2", connectOptions as any);
+  const analysisPromise = (async () => {
+    // Dynamic import for ESM-only @gradio/client
+    const { Client } = await import("@gradio/client");
+    
+    const hfToken = process.env.HF_TOKEN || undefined;
+    const connectOptions: Record<string, unknown> = {};
+    if (hfToken) connectOptions.hf_token = hfToken;
+    const client = await Client.connect("Reino0ne/tribev2", connectOptions as any);
 
-  const result = await client.predict("/process_text", {
-    text,
-  });
+    const result = await client.predict("/process_text", {
+      text,
+    });
 
-  const data = result.data as any[];
-  return {
-    plot: data[0],
-    markdown: data[1] || "",
-    pdf: data[2],
-  };
+    const data = result.data as any[];
+    return {
+      plot: data[0],
+      markdown: data[1] || "",
+      pdf: data[2],
+    };
+  })();
+
+  const timeoutPromise = new Promise<{ plot: any; markdown: string; pdf: any }>((_, reject) => 
+    setTimeout(() => reject(new Error("TRIBE v2 Analysis Timeout")), timeout)
+  );
+
+  return Promise.race([analysisPromise, timeoutPromise]);
 }
 
 // ─── Helper: Interpret TRIBE output via Gemini ──────────────────────────────
@@ -127,17 +137,59 @@ ${v.markdown}
     )
     .join("\n\n");
 
-  const userPrompt = `${projectGoal ? `PROJECT GOAL: ${projectGoal}\n\n` : ""}ANALYZE THE FOLLOWING VARIANT(S) AND RETURN STRUCTURED INSIGHTS:
+  const userPrompt = `${projectGoal ? `PROJECT GOAL: ${projectGoal}\n\n` : ""}ANALYZE THE FOLLOWING VARIANT(S) AND RETURN STRUCTURED INSIGHTS. 
+  
+  NOTE: If "TRIBE v2 RAW ANALYSIS" says "Analysis failed" or "Timeout", you MUST use your own internal creative intelligence (Thinking Mode) to simulate the neural prediction and provide high-fidelity creative optimization insights anyway.
 
 ${variantSections}
 
 Return the JSON response now.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.0-flash",
+    model: "gemini-3.1-pro-preview",
     contents: userPrompt,
     config: {
       systemInstruction: INTELLIGENCE_ENGINE_PROMPT,
+      thinkingConfig: {
+        thinkingLevel: "HIGH",
+      },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          summary: {
+            type: "object",
+            properties: {
+              quality: { type: "string" },
+              diagnosis: { type: "string" }
+            }
+          },
+          weaknesses: { type: "array", items: { type: "string" } },
+          actions: { type: "array", items: { type: "string" } },
+          optimized_script: { type: "string" },
+          variant_ranking: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                rank: { type: "number" },
+                engagement_score: { type: "number" },
+                strengths: { type: "string" },
+                weaknesses: { type: "string" }
+              }
+            }
+          },
+          winner: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              reason: { type: "string" },
+              dominant_signal: { type: "string" }
+            }
+          }
+        }
+      }
     },
   });
 

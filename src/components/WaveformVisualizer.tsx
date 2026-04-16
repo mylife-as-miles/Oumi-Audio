@@ -61,7 +61,7 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
     return () => {
       ws.destroy();
     };
-  }, [audioUrl, color, height]);
+  }, [audioUrl, waveColor, progressColor, height]);
 
   useEffect(() => {
     if (wavesurferRef.current && isReady) {
