@@ -598,6 +598,8 @@ const Sidebar = ({
   onViewChange: (view: 'dashboard' | 'library' | 'memory' | 'settings') => void
 }) => {
   const { showToast } = useToast();
+  const [isProjectDropdownOpen, setIsProjectDropdownOpen] = useState(false);
+  
   return (
   <aside className={`flex flex-col py-10 px-6 glass-panel z-50 ${className}`}>
     <div className="mb-12 flex justify-between items-start">
@@ -621,18 +623,68 @@ const Sidebar = ({
       New Project
     </button>
     <nav className="flex-1 space-y-1">
-      <a 
-        onClick={(e) => { 
-          e.preventDefault(); 
-          onViewChange('dashboard');
-          if (onClose) onClose(); 
-        }} 
-        className={`flex items-center gap-3 py-2.5 px-4 rounded-lg transition-all ${activeView === 'dashboard' ? 'text-primary bg-primary/5 font-medium' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'}`} 
-        href="#"
-      >
-        <FolderOpen size={20} strokeWidth={1.5} />
-        <span className="font-headline text-[11px] uppercase tracking-widest">Projects</span>
-      </a>
+      <div className="relative">
+        <button 
+          onClick={(e) => { 
+            e.preventDefault(); 
+            setIsProjectDropdownOpen(!isProjectDropdownOpen);
+          }} 
+          className={`w-full flex items-center justify-between py-2.5 px-4 rounded-lg transition-all ${activeView === 'dashboard' ? 'text-primary bg-primary/5 font-medium' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'}`} 
+        >
+          <div className="flex items-center gap-3">
+            <FolderOpen size={20} strokeWidth={1.5} />
+            <span className="font-headline text-[11px] uppercase tracking-widest">Projects</span>
+          </div>
+          <motion.div
+            animate={{ rotate: isProjectDropdownOpen ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown size={14} className="opacity-50" />
+          </motion.div>
+        </button>
+
+        <AnimatePresence>
+          {isProjectDropdownOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="absolute left-0 top-full mt-2 w-full bg-surface-container-high border border-outline/10 rounded-xl shadow-2xl z-50 py-2 max-h-60 overflow-y-auto custom-scrollbar"
+            >
+              <div className="px-3 py-1 mb-1 border-b border-outline/5">
+                <button 
+                  onClick={() => {
+                    onViewChange('dashboard');
+                    setIsProjectDropdownOpen(false);
+                    if (onClose) onClose();
+                  }}
+                  className="w-full text-left px-3 py-2 text-[10px] uppercase tracking-widest font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                >
+                  View All Projects
+                </button>
+              </div>
+              {projects?.map((p) => (
+                <button
+                  key={p.projectId}
+                  onClick={() => {
+                    if (onSelectProject) onSelectProject(p);
+                    setIsProjectDropdownOpen(false);
+                    if (onClose) onClose();
+                  }}
+                  className={`w-full text-left px-4 py-2 text-[11px] transition-all flex items-center gap-3 ${currentProjectId === p.projectId ? 'text-primary bg-primary/5' : 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface'}`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${currentProjectId === p.projectId ? 'bg-primary' : 'bg-transparent'}`} />
+                  <span className="truncate">{p.projectName}</span>
+                </button>
+              ))}
+              {(!projects || projects.length === 0) && (
+                <p className="px-4 py-3 text-[10px] text-on-surface-variant/40 italic">No projects found</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
       <a 
         onClick={(e) => { 
           e.preventDefault(); 
@@ -671,40 +723,7 @@ const Sidebar = ({
       </a>
     </nav>
 
-    {/* Project List */}
-    <div className="mt-10 flex-1 overflow-y-auto custom-scrollbar pr-2">
-      <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50 px-4 mb-4">Recent Projects</h3>
-      <div className="space-y-1">
-        {projects?.map((p) => (
-          <div key={p.projectId} className="group relative">
-            <button
-              onClick={() => {
-                if (onSelectProject) onSelectProject(p);
-                if (onClose) onClose();
-              }}
-              className={`w-full text-left px-4 py-2 rounded-lg transition-all flex items-center gap-3 ${currentProjectId === p.projectId ? 'bg-primary/10 text-primary border border-primary/20' : 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface border border-transparent'}`}
-            >
-              <FolderOpen size={16} className={currentProjectId === p.projectId ? 'text-primary' : 'text-on-surface-variant/40 group-hover:text-on-surface-variant'} />
-              <span className="text-[11px] truncate flex-1">{p.projectName}</span>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onDeleteProject) {
-                  onDeleteProject(p);
-                }
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 opacity-0 group-hover:opacity-100 text-on-surface-variant/40 hover:text-error transition-all"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
-        {(!projects || projects.length === 0) && (
-          <p className="px-4 text-[10px] text-on-surface-variant/40 italic">No projects yet</p>
-        )}
-      </div>
-    </div>
+    {/* Project switching is now handled via the Projects dropdown above */}
     <div className="mt-auto pt-6 border-t border-outline/5">
       <a onClick={(e) => { e.preventDefault(); showToast("Opening Help Center..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2 px-4 rounded-lg text-on-surface-variant/60 hover:text-on-surface transition-colors" href="#">
         <HelpCircle size={18} strokeWidth={1.5} />
