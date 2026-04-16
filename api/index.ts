@@ -1,7 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { Turbopuffer } from "@turbopuffer/turbopuffer";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { ElevenLabsClient } from "elevenlabs";
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
@@ -151,7 +151,7 @@ Return the JSON response now.`;
     config: {
       systemInstruction: INTELLIGENCE_ENGINE_PROMPT,
       thinkingConfig: {
-        thinkingLevel: "HIGH",
+        thinkingLevel: ThinkingLevel.HIGH,
       },
       responseMimeType: "application/json",
       responseSchema: {
