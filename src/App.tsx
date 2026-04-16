@@ -53,8 +53,6 @@ import {
   Lightbulb,
   RefreshCw,
   Eye,
-  Star,
-  Archive,
   ArrowRight,
   Crown,
   Video,
@@ -1743,7 +1741,27 @@ export default function App() {
   const [variants, setVariants] = useState<any[]>([]);
   
   // Neural analysis state
-  const [neuralInsights, setNeuralInsights] = useState<NeuralInsights | null>(null);
+  const [neuralInsights, setNeuralInsights] = useState<NeuralInsights | null>({
+    "summary": {
+        "quality": "Bad"
+    },
+    "weaknesses": [
+        "Lacks an auditory hook or narrative structure to capture attention in the first 3 seconds.",
+        "Absence of sensory language or ASMR sound design cues critical for Gen Z premium audio engagement.",
+        "Zero brand presence, product mechanics, or actionable call-to-action."
+    ],
+    "winner": {
+        "dominant_signal": "intent",
+        "name": "Variant 1",
+        "reason": "Only variant provided, serving as the baseline for the optimized rewrite."
+    },
+    "_raw": [
+        {
+            "variantName": "Variant 1",
+            "tribeMarkdown": "Analysis failed: TRIBE v2 Analysis Timeout"
+        }
+    ]
+  } as any);
   const [isNeuralLoading, setIsNeuralLoading] = useState(false);
   const [analyzingVariantId, setAnalyzingVariantId] = useState<string | null>(null);
   
