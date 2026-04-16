@@ -421,14 +421,10 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-const Sidebar = ({ 
-  className = "", 
-  onClose, 
-  onNewProject,
-  projects = [],
-  onSelectProject,
-  onDeleteProject,
-  currentProjectId
+  onDeleteProject?: (project: any) => void,
+  currentProjectId?: string,
+  activeView: 'dashboard' | 'library',
+  onViewChange: (view: 'dashboard' | 'library') => void
 }: { 
   className?: string, 
   onClose?: () => void, 
@@ -436,7 +432,9 @@ const Sidebar = ({
   projects?: any[],
   onSelectProject?: (project: any) => void,
   onDeleteProject?: (project: any) => void,
-  currentProjectId?: string
+  currentProjectId?: string,
+  activeView: 'dashboard' | 'library',
+  onViewChange: (view: 'dashboard' | 'library') => void
 }) => {
   const { showToast } = useToast();
   return (
@@ -463,11 +461,27 @@ const Sidebar = ({
       New Project
     </button>
     <nav className="flex-1 space-y-1">
-      <a onClick={(e) => { e.preventDefault(); showToast("Opening Projects..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-primary bg-primary/5 font-medium transition-all" href="#">
+      <a 
+        onClick={(e) => { 
+          e.preventDefault(); 
+          onViewChange('dashboard');
+          if (onClose) onClose(); 
+        }} 
+        className={`flex items-center gap-3 py-2.5 px-4 rounded-lg transition-all ${activeView === 'dashboard' ? 'text-primary bg-primary/5 font-medium' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'}`} 
+        href="#"
+      >
         <FolderOpen size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Projects</span>
       </a>
-      <a onClick={(e) => { e.preventDefault(); showToast("Opening Library..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+      <a 
+        onClick={(e) => { 
+          e.preventDefault(); 
+          onViewChange('library');
+          if (onClose) onClose(); 
+        }} 
+        className={`flex items-center gap-3 py-2.5 px-4 rounded-lg transition-all ${activeView === 'library' ? 'text-primary bg-primary/5 font-medium' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'}`} 
+        href="#"
+      >
         <Music size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Library</span>
       </a>
@@ -1437,6 +1451,13 @@ export default function App() {
   const [neuralInsights, setNeuralInsights] = useState<NeuralInsights | null>(null);
   const [isNeuralLoading, setIsNeuralLoading] = useState(false);
   const [analyzingVariantId, setAnalyzingVariantId] = useState<string | null>(null);
+  
+  // Library State
+  const [activeView, setActiveView] = useState<'dashboard' | 'library'>('dashboard');
+  const [globalVariants, setGlobalVariants] = useState<any[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [benchmarkingVariants, setBenchmarkingVariants] = useState<any[]>([]);
+
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -1458,7 +1479,7 @@ export default function App() {
 
   // Load variants when project changes
   useEffect(() => {
-    if (currentProject) {
+    if (activeView === 'dashboard' && currentProject) {
       const loadVariants = async () => {
         const savedVariants = await db.variants
           .where('projectId')
@@ -1468,10 +1489,21 @@ export default function App() {
         setVariants(savedVariants);
       };
       loadVariants();
-    } else {
-      setVariants([]);
+    } else if (activeView === 'library') {
+      const loadGlobalVariants = async () => {
+        setLibraryLoading(true);
+        const allVariants = await db.variants.reverse().toArray();
+        // Enrich with project names
+        const enriched = await Promise.all(allVariants.map(async (v) => {
+          const proj = await db.projects.where('projectId').equals(v.projectId).first();
+          return { ...v, projectName: proj?.projectName || 'Deleted Project' };
+        }));
+        setGlobalVariants(enriched);
+        setLibraryLoading(false);
+      };
+      loadGlobalVariants();
     }
-  }, [currentProject]);
+  }, [currentProject, activeView]);
 
   const handleCreateProject = async (projectData: any) => {
     const projectId = `proj_${Date.now()}`;
@@ -1706,12 +1738,17 @@ export default function App() {
       <Sidebar 
         onNewProject={() => setIsNewProjectModalOpen(true)} 
         projects={projectsList}
-        onSelectProject={setCurrentProject}
+        onSelectProject={(p) => {
+          setCurrentProject(p);
+          setActiveView('dashboard');
+        }}
         onDeleteProject={(p) => {
           setProjectToDelete(p);
           setIsDeleteModalOpen(true);
         }}
         currentProjectId={currentProject?.projectId}
+        activeView={activeView}
+        onViewChange={setActiveView}
         className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" 
       />
       
@@ -1731,12 +1768,17 @@ export default function App() {
               <Sidebar 
                 onNewProject={() => setIsNewProjectModalOpen(true)} 
                 projects={projectsList}
-                onSelectProject={setCurrentProject}
+                onSelectProject={(p) => {
+                  setCurrentProject(p);
+                  setActiveView('dashboard');
+                }}
                 onDeleteProject={(p) => {
                   setProjectToDelete(p);
                   setIsDeleteModalOpen(true);
                 }}
                 currentProjectId={currentProject?.projectId}
+                activeView={activeView}
+                onViewChange={setActiveView}
                 className="h-full w-full border-none" 
                 onClose={() => setIsLeftMenuOpen(false)} 
               />
