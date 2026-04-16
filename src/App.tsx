@@ -1278,6 +1278,54 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
   );
 };
 
+const DeleteConfirmationModal = ({ isOpen, projectName, onClose, onConfirm }: { isOpen: boolean, projectName: string, onClose: () => void, onConfirm: () => void }) => {
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+      />
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        className="relative glass-panel w-full max-w-md overflow-hidden shadow-2xl border border-outline/10 flex flex-col"
+      >
+        <div className="p-8 text-center flex flex-col items-center">
+          <div className="w-16 h-16 rounded-3xl bg-error/10 border border-error/20 flex items-center justify-center text-error mb-6">
+            <AlertTriangle size={32} />
+          </div>
+          <h3 className="font-headline text-2xl font-bold text-on-surface mb-3 tracking-tight">Confirm Deletion</h3>
+          <p className="text-sm text-on-surface-variant leading-relaxed">
+            Are you sure you want to delete <span className="text-on-surface font-bold">"{projectName}"</span>?
+          </p>
+          <div className="mt-4 p-4 bg-error/5 border border-error/10 rounded-2xl w-full">
+            <p className="text-[10px] text-error font-bold uppercase tracking-widest text-center">Warning: This action is permanent and will remove all associated variants and creative data.</p>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-outline/10 bg-white/5 flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest text-on-surface-variant hover:bg-white/5 transition-all border border-outline/10"
+          >
+            Go Back
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="flex-1 px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest bg-error text-white hover:bg-error/90 transition-all shadow-lg shadow-error/20"
+          >
+            Delete Everything
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 export default function App() {
   const [isLeftMenuOpen, setIsLeftMenuOpen] = useState(false);
   const [isRightMenuOpen, setIsRightMenuOpen] = useState(false);
@@ -1298,6 +1346,8 @@ export default function App() {
   };
 
   const [projectsList, setProjectsList] = useState<any[]>([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<any>(null);
 
   // Load projects list on mount
   useEffect(() => {
@@ -1636,6 +1686,24 @@ export default function App() {
         {/* Analytics Panel for Desktop */}
         <AnalyticsPanel className="hidden xl:flex w-96 border-l border-outline/5 p-10" neuralInsights={neuralInsights} isNeuralLoading={isNeuralLoading} />
       </main>
+
+      <AnimatePresence>
+        {isDeleteModalOpen && projectToDelete && (
+          <DeleteConfirmationModal
+            isOpen={isDeleteModalOpen}
+            projectName={projectToDelete.projectName}
+            onClose={() => {
+              setIsDeleteModalOpen(false);
+              setProjectToDelete(null);
+            }}
+            onConfirm={() => {
+              handleDeleteProject(projectToDelete.projectId);
+              setIsDeleteModalOpen(false);
+              setProjectToDelete(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isNewProjectModalOpen && (
