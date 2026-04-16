@@ -262,7 +262,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
               )}
 
               {/* Variant Ranking */}
-              {insights.variant_ranking && insights.variant_ranking.length > 1 && (
+              {insights.variant_ranking && (insights.variant_ranking?.length || 0) > 1 && (
                 <div>
                   <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-2 mb-3">
                     <Award size={14} /> Variant Ranking
@@ -423,7 +423,7 @@ const Sidebar = ({
             <span className="text-[11px] truncate">{p.projectName}</span>
           </button>
         ))}
-        {projects.length === 0 && (
+        {(!projects || projects.length === 0) && (
           <p className="px-4 text-[10px] text-on-surface-variant/40 italic">No projects yet</p>
         )}
       </div>
@@ -1062,7 +1062,7 @@ const CreativeMemoryBase = ({ isIngesting, project }: { isIngesting: boolean, pr
         </div>
         <div className="text-[10px] bg-surface-variant/50 text-on-surface-variant px-3 py-1 rounded-full flex items-center gap-1.5">
           <Sparkles size={12} className="text-tertiary" />
-          <span>{project.uploadedFiles.length} Sources Indexed</span>
+          <span>{project.uploadedFiles?.length || 0} Sources Indexed</span>
         </div>
       </div>
       
@@ -1190,7 +1190,7 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
             </div>
 
             {/* Uploaded Files List */}
-            {uploadedFiles.length > 0 && (
+            {uploadedFiles?.length > 0 && (
               <div className="space-y-2 mt-4">
                 {uploadedFiles?.map((file, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-surface-container/40 border border-outline/10 rounded-xl p-3">
@@ -1251,7 +1251,7 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
           </button>
           <button 
             onClick={handleCreate}
-            disabled={!projectName && uploadedFiles.length === 0}
+            disabled={!projectName && (uploadedFiles?.length || 0) === 0}
             className="px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest bg-primary text-on-primary hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Plus size={16} /> Create Project
