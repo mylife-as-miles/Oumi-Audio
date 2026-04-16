@@ -135,14 +135,15 @@ Convert this raw neural data into the EXACT JSON schema below. Return ONLY valid
   }
 }
 
-RULES:
 - Be concise but high-signal
 - No fluff, no storytelling
-- Every insight must map to data from the TRIBE analysis
+- Every insight must map to data from the TRIBE analysis (and the audio if provided)
 - Focus on improving performance, not explaining neuroscience
 - Think like a creative strategist + growth engineer
 - If only one variant is analyzed, still populate winner with that variant
-- variant_ranking should only contain entries for variants actually analyzed`;
+- variant_ranking should only contain entries for variants actually analyzed
+- AUDIO EVALUATION: If multimodal audio is provided, analyze the actual orchestration, tempo, and vocal delivery. A variant might have a great script but poor audio execution. Factor this into the ranking and scores.
+- WINNER: Explicitly pick the 'winner' based on which variant best achieves the Project Goal. If they are tied, pick the one with higher attention/emotion scores.`;
 
 // ─── Helper: Connect to TRIBE v2 and analyze text ──────────────────────────
 
@@ -180,7 +181,7 @@ async function analyzeTribeText(text: string, hfTokenOverride?: string): Promise
 // ─── Helper: Interpret TRIBE output via Gemini ──────────────────────────────
 
 async function interpretWithGemini(
-  tribeOutputs: { script: string; markdown: string; variantName: string }[],
+  tribeOutputs: { script: string; markdown: string; variantName: string; audioData?: string }[],
   projectGoal?: string,
   req?: express.Request
 ): Promise<any> {
@@ -210,8 +211,16 @@ ${variantSections}
 Return the JSON response now.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.1-pro-preview",
-    contents: userPrompt,
+    model: "gemini-1.5-pro", // Using 1.5 Pro for stable multimodal/audio support
+    contents: [
+      { text: userPrompt },
+      ...tribeOutputs.filter(v => v.audioData).map(v => ({
+        inlineData: {
+          data: v.audioData.includes(',') ? v.audioData.split(',')[1] : v.audioData,
+          mimeType: "audio/mpeg" // ElevenLabs outputs mp3
+        }
+      }))
+    ],
     config: {
       systemInstruction: INTELLIGENCE_ENGINE_PROMPT,
       thinkingConfig: {
@@ -646,7 +655,7 @@ app.post("/api/analyze-neural", async (req, res) => {
     console.log(`[Neural Analysis] Analyzing ${variants.length} variant(s) via TRIBE v2...`);
 
     // Step 1: Send each script to TRIBE v2
-    const tribeResults: { script: string; markdown: string; variantName: string }[] = [];
+    const tribeResults: { script: string; markdown: string; variantName: string; audioData?: string }[] = [];
     const hfToken = req.headers['x-hf-token'] as string || process.env.HF_TOKEN;
 
     for (const variant of variants) {
@@ -657,6 +666,7 @@ app.post("/api/analyze-neural", async (req, res) => {
           script: variant.script,
           markdown: result.markdown,
           variantName: variant.name,
+          audioData: variant.audioData, // Pass music data forward
         });
         console.log(`[Neural Analysis] TRIBE v2 completed for: ${variant.name}`);
       } catch (tribeError) {
@@ -665,6 +675,7 @@ app.post("/api/analyze-neural", async (req, res) => {
           script: variant.script,
           markdown: `Analysis failed: ${(tribeError as Error).message}`,
           variantName: variant.name,
+          audioData: variant.audioData,
         });
       }
     }
@@ -768,7 +779,7 @@ app.post("/api/generate-music", async (req, res) => {
         const namespaceName = getNamespaceName(projectId);
         const ns = tpuf.namespace(namespaceName);
         const searchResults = await ns.query({
-          rank_by: ["vector", "ANN", new Array(3072).fill(0)],
+          rank_by: ["vector", "ANN", new Array(768).fill(0)],
           top_k: 5,
           include_attributes: ["text"],
         });
@@ -954,14 +965,21 @@ app.get("/api/memory/browse", async (req, res) => {
         const namespacesResult = await tpuf.namespaces();
         
         // Handle varying response formats from Turbopuffer SDK
-        let discoveredNamespaces: string[] = [];
+        let rawList: any[] = [];
         if (Array.isArray(namespacesResult)) {
-          discoveredNamespaces = namespacesResult;
+          rawList = namespacesResult;
         } else if (namespacesResult && typeof namespacesResult === 'object') {
-          discoveredNamespaces = (namespacesResult as any).namespaces || Object.keys(namespacesResult) || [];
+          rawList = (namespacesResult as any).namespaces || Object.values(namespacesResult) || [];
         }
 
-        const projectNamespaces = discoveredNamespaces.filter(n => typeof n === 'string' && n.startsWith("project-"));
+        // Extract strings from potential objects [ { id: '...', name: '...' } ] or [ "name1", "name2" ]
+        const discoveredNamespaces: string[] = rawList.map(n => {
+          if (typeof n === 'string') return n;
+          if (n && typeof n === 'object') return n.id || n.name || n.namespace || "";
+          return "";
+        }).filter(Boolean);
+
+        const projectNamespaces = discoveredNamespaces.filter(n => n.startsWith("project-"));
         console.log(`[Memory Browse] Found ${projectNamespaces.length} total namespaces, ${projectNamespaces.length} project namespaces.`);
 
         // Sample from each project (up to 15 projects to ensure better coverage)

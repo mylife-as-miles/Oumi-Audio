@@ -2544,7 +2544,11 @@ export default function App() {
         method: 'POST',
         headers: getSettingsHeaders(),
         body: JSON.stringify({
-          variants: [{ name: variant.name, script: variant.script }],
+          variants: [{ 
+            name: variant.name, 
+            script: variant.script,
+            audioData: variant.audioUrl // Include audio for multimodal analysis
+          }],
           projectGoal: currentProject?.goal,
         }),
       });
@@ -2582,6 +2586,7 @@ export default function App() {
           variants: variantsWithScripts.map((v) => ({
             name: v.name,
             script: v.script,
+            audioData: v.audioUrl
           })),
           projectGoal: currentProject?.goal,
         }),
