@@ -159,7 +159,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
 
   if (!insights) return null;
 
-  const qConfig = qualityConfig[insights.summary.quality] || qualityConfig.Average;
+  const qConfig = qualityConfig[insights.summary?.quality || 'Average'] || qualityConfig.Average;
 
   return (
     <motion.div
@@ -190,10 +190,10 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
         <div className={`flex items-center justify-between p-4 rounded-xl border ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
           <div className="flex items-center gap-3">
             <div className={`text-2xl font-headline font-extrabold ${qConfig.color}`}>
-              {insights.summary.quality}
+              {insights.summary?.quality || 'Analyzing'}
             </div>
             <div className="w-px h-8 bg-outline/20" />
-            <p className="text-xs text-on-surface/80 max-w-sm leading-relaxed">{insights.summary.diagnosis}</p>
+            <p className="text-xs text-on-surface/80 max-w-sm leading-relaxed">{insights.summary?.diagnosis || 'Processing neural diagnostic...'}</p>
           </div>
           <ShieldCheck size={24} className={qConfig.color} />
         </div>
@@ -250,12 +250,12 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                   </div>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-headline font-bold text-on-surface">{insights.winner.name}</p>
-                      <p className="text-xs text-on-surface-variant mt-1">{insights.winner.reason}</p>
+                      <p className="text-sm font-headline font-bold text-on-surface">{insights.winner?.name}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{insights.winner?.reason}</p>
                     </div>
                     <div className="flex items-center gap-2 bg-tertiary/10 px-3 py-1.5 rounded-lg">
-                      {signalIcons[insights.winner.dominant_signal] || <Zap size={14} />}
-                      <span className="text-[10px] uppercase tracking-widest font-bold text-tertiary">{insights.winner.dominant_signal}</span>
+                      {signalIcons[insights.winner?.dominant_signal || ''] || <Zap size={14} />}
+                      <span className="text-[10px] uppercase tracking-widest font-bold text-tertiary">{insights.winner?.dominant_signal}</span>
                     </div>
                   </div>
                 </div>
@@ -766,16 +766,16 @@ const ActiveVariants = ({ variants, setVariants, onAnalyzeVariant, analyzingVari
     );
   };
 
-  const filteredAndSortedVariants = variants
-    .filter(v => filterQuality === 'All' || v.quality === filterQuality)
+  const filteredAndSortedVariants = (variants || [])
+    .filter(v => filterQuality === 'All' || v?.quality === filterQuality)
     .sort((a, b) => {
-      if (sortBy === 'date') return b.timestamp - a.timestamp;
-      if (sortBy === 'score') return b.score - a.score;
-      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'date') return (b?.timestamp || 0) - (a?.timestamp || 0);
+      if (sortBy === 'score') return (b?.score || 0) - (a?.score || 0);
+      if (sortBy === 'name') return (a?.name || '').localeCompare(b?.name || '');
       return 0;
     });
 
-  if (variants.length === 0) {
+  if (!variants || variants.length === 0) {
     return (
       <section className="space-y-6">
         <div className="flex justify-between items-center">
@@ -988,15 +988,15 @@ const ProjectContextBar = ({ project }: { project: any }) => {
         <div className="flex flex-col items-end">
           <span className="text-[9px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Attached Sources</span>
           <div className="flex -space-x-2">
-            {project.uploadedFiles.map((file: any, i: number) => (
+            {project.uploadedFiles?.map((file: any, i: number) => (
               <div key={i} className="w-8 h-8 rounded-full bg-surface-container-high border-2 border-background flex items-center justify-center text-primary relative group cursor-pointer">
-                {file.name.endsWith('.pdf') ? <FileText size={12} /> : <FileAudio size={12} />}
+                {file.name?.endsWith('.pdf') ? <FileText size={12} /> : <FileAudio size={12} />}
                 <span className="absolute -bottom-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-highest text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">
                   {file.name}
                 </span>
               </div>
             ))}
-            {project.uploadedFiles.length === 0 && (
+            {(!project.uploadedFiles || project.uploadedFiles.length === 0) && (
               <span className="text-xs text-on-surface-variant italic">No files attached</span>
             )}
           </div>
