@@ -666,6 +666,19 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
     }
   };
 
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const link = document.createElement('a');
+    link.href = variant.audioUrl;
+    const mimeType = variant.audioUrl.split(';')[0]?.split(':')[1] || 'audio/wav';
+    const extension = mimeType.split('/')[1] || 'wav';
+    link.download = `${variant.name.replace(/\s+/g, '_')}_${variant.variantId || 'audio'}.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`Downloading ${variant.name}...`);
+  };
+
 
   return (
     <div className={`p-6 rounded-2xl flex flex-col gap-5 transition-all duration-300 border ${isSelected ? 'bg-primary/5 border-primary/30 shadow-[0_0_30px_rgba(var(--color-primary),0.15)]' : 'bg-surface-container-low/20 border-outline/10 hover:border-primary/30 hover:bg-surface-bright/40'}`}>
@@ -699,6 +712,15 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
               {isAnalyzing ? <Loader2 size={16} className="animate-spin text-tertiary" /> : <Brain size={16} />}
             </button>
             <span className="absolute -top-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">Analyze with TRIBE v2</span>
+          </div>
+          <div className="relative group flex items-center justify-center">
+            <button 
+              onClick={handleDownload}
+              className="text-on-surface-variant/40 hover:text-primary transition-colors p-1"
+            >
+              <Download size={16} />
+            </button>
+            <span className="absolute -top-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">Download Audio</span>
           </div>
           <div className="relative group flex items-center justify-center">
             <button onClick={(e) => { e.stopPropagation(); setIsShareOpen(true); }} className="text-on-surface-variant/40 hover:text-primary transition-colors p-1">
@@ -743,6 +765,10 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
           <button onClick={handlePlayToggle} className="flex items-center gap-2 text-[11px] font-bold text-on-surface bg-white/5 py-2 px-5 rounded-lg border border-outline/10 hover:bg-white/10 transition-all uppercase tracking-widest">
             {isPlaying ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             {isPlaying ? 'Stop' : 'Preview'}
+          </button>
+          <button onClick={handleDownload} className="flex items-center gap-2 text-[11px] font-bold text-on-surface bg-white/5 py-2 px-5 rounded-lg border border-outline/10 hover:bg-white/10 transition-all uppercase tracking-widest ml-2">
+            <Download size={16} />
+            Download
           </button>
           <span className="absolute -top-8 left-1/2 -translate-x-1/2 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">{isPlaying ? 'Stop Audio' : 'Play Audio'}</span>
         </div>
