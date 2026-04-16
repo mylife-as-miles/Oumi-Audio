@@ -355,6 +355,7 @@ const Sidebar = ({
   onNewProject,
   projects = [],
   onSelectProject,
+  onDeleteProject,
   currentProjectId
 }: { 
   className?: string, 
@@ -362,11 +363,13 @@ const Sidebar = ({
   onNewProject?: () => void,
   projects?: any[],
   onSelectProject?: (project: any) => void,
+  onDeleteProject?: (id: string) => void,
   currentProjectId?: string
 }) => {
   const { showToast } = useToast();
   return (
   <aside className={`flex flex-col py-10 px-6 glass-panel z-50 ${className}`}>
+    {/* ... (Header keeps existing content, simplified for brevity) ... */}
     <div className="mb-12 flex justify-between items-start">
       <div>
         <h1 className="text-lg font-headline font-bold tracking-tight text-[#dee5ff]">Oumi Audio</h1>
@@ -411,17 +414,29 @@ const Sidebar = ({
       <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50 px-4 mb-4">Recent Projects</h3>
       <div className="space-y-1">
         {projects?.map((p) => (
-          <button
-            key={p.projectId}
-            onClick={() => {
-              if (onSelectProject) onSelectProject(p);
-              if (onClose) onClose();
-            }}
-            className={`w-full text-left px-4 py-2 rounded-lg transition-all group flex items-center gap-3 ${currentProjectId === p.projectId ? 'bg-primary/10 text-primary border border-primary/20' : 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface border border-transparent'}`}
-          >
-            <FolderOpen size={16} className={currentProjectId === p.projectId ? 'text-primary' : 'text-on-surface-variant/40 group-hover:text-on-surface-variant'} />
-            <span className="text-[11px] truncate">{p.projectName}</span>
-          </button>
+          <div key={p.projectId} className="group relative">
+            <button
+              onClick={() => {
+                if (onSelectProject) onSelectProject(p);
+                if (onClose) onClose();
+              }}
+              className={`w-full text-left px-4 py-2 rounded-lg transition-all flex items-center gap-3 ${currentProjectId === p.projectId ? 'bg-primary/10 text-primary border border-primary/20' : 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface border border-transparent'}`}
+            >
+              <FolderOpen size={16} className={currentProjectId === p.projectId ? 'text-primary' : 'text-on-surface-variant/40 group-hover:text-on-surface-variant'} />
+              <span className="text-[11px] truncate flex-1">{p.projectName}</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDeleteProject && window.confirm(`Delete project "${p.projectName}" and all its data?`)) {
+                  onDeleteProject(p.projectId);
+                }
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 opacity-0 group-hover:opacity-100 text-on-surface-variant/40 hover:text-error transition-all"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         ))}
         {(!projects || projects.length === 0) && (
           <p className="px-4 text-[10px] text-on-surface-variant/40 italic">No projects yet</p>
@@ -645,7 +660,8 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
           audioUrl={variant.audioUrl} 
           isPlaying={isPlaying} 
           onPlayPause={setIsPlaying}
-          color={isPlaying ? '#4f46e5' : '#4f46e5'} // Assuming primary is indigo-600
+          progressColor="#e7ffc4" 
+          waveColor="rgba(59, 66, 112, 0.4)"
           height={40}
         />
       </div>
@@ -1440,6 +1456,27 @@ export default function App() {
     }
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await db.projects.where('projectId').equals(projectId).delete();
+      await db.variants.where('projectId').equals(projectId).delete();
+      await db.files.where('projectId').equals(projectId).delete();
+      
+      setProjectsList(prev => prev.filter(p => p.projectId !== projectId));
+      
+      if (currentProject?.projectId === projectId) {
+        setCurrentProject(null);
+        setVariants([]);
+        setNeuralInsights(null);
+      }
+      
+      showToast("Project deleted successfully");
+    } catch (error) {
+      console.error(error);
+      showToast("Failed to delete project");
+    }
+  };
+
   // ─── Neural Analysis Handlers ───────────────────────────────────────────
 
   const handleAnalyzeVariant = async (variant: any) => {
@@ -1522,6 +1559,7 @@ export default function App() {
         onNewProject={() => setIsNewProjectModalOpen(true)} 
         projects={projectsList}
         onSelectProject={setCurrentProject}
+        onDeleteProject={handleDeleteProject}
         currentProjectId={currentProject?.projectId}
         className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" 
       />

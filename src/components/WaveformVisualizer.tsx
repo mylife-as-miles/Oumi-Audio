@@ -5,7 +5,8 @@ interface WaveformVisualizerProps {
   audioUrl: string;
   isPlaying: boolean;
   onPlayPause: (playing: boolean) => void;
-  color?: string;
+  progressColor?: string;
+  waveColor?: string;
   height?: number;
   className?: string;
 }
@@ -14,7 +15,8 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
   audioUrl, 
   isPlaying, 
   onPlayPause,
-  color = '#3b82f6', // primary color fallback
+  progressColor = '#e7ffc4', // tertiary lime
+  waveColor = 'rgba(59, 66, 112, 0.4)', // dark indigo
   height = 40,
   className = ""
 }) => {
@@ -27,8 +29,8 @@ const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
 
     const ws = WaveSurfer.create({
       container: containerRef.current,
-      waveColor: `${color}33`, // 20% opacity
-      progressColor: color,
+      waveColor: waveColor,
+      progressColor: progressColor,
       cursorColor: 'transparent',
       barWidth: 3,
       barGap: 2,
