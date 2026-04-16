@@ -47,19 +47,30 @@ export interface Setting {
   value: any;
 }
 
+export interface MemoryNode {
+  id?: number;
+  projectId: string;
+  text: string;
+  vector: number[];
+  type: string;
+  size?: number;
+}
+
 export class OumiDatabase extends Dexie {
   projects!: Table<Project, number>;
   files!: Table<ProjectFile, number>;
   variants!: Table<Variant, number>;
   settings!: Table<Setting, number>;
+  memoryNodes!: Table<MemoryNode, number>;
 
   constructor() {
     super('OumiDatabase');
-    this.version(4).stores({
+    this.version(5).stores({
       projects: '++id, projectId, projectName, lastModified',
       files: '++id, projectId, name',
       variants: '++id, projectId, variantId, isFinalized, *tags',
-      settings: '++id, &key'
+      settings: '++id, &key',
+      memoryNodes: '++id, projectId, type'
     });
   }
 }

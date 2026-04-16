@@ -626,7 +626,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
     });
 
     console.log("[Ingestion] Completed successfully.");
-    res.json({ success: true, projectId, chunksProcessed: extractedChunks.length });
+    res.json({ success: true, projectId, chunksProcessed: extractedChunks.length, rows });
   } catch (error) {
     console.error("[Ingestion] Global Fatal Error:", error);
     res.status(500).json({ 

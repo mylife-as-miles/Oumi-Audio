@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   FolderOpen,
@@ -78,6 +78,9 @@ import {
 import { db } from './db';
 import WaveformVisualizer from './components/WaveformVisualizer';
 import SettingsPage from './components/SettingsPage';
+
+// ─── Contexts ─────────────────────────────────────────────────────────────
+const ToastContext = createContext<{ showToast: (msg: string) => void }>({ showToast: () => {} });
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -2093,6 +2096,7 @@ const LegendItem = ({ color, label }: { color: string, label: string }) => (
 );
 
 const MemoryPage = ({ currentProject, headers = {} }: { currentProject?: any, headers?: Record<string, string> }) => {
+  const { showToast } = useContext(ToastContext);
   const [memoryData, setMemoryData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -2109,7 +2113,27 @@ const MemoryPage = ({ currentProject, headers = {} }: { currentProject?: any, he
           setMemoryData({ nodes: data.nodes, links: data.links });
         }
       } catch (err) {
-        console.error("Failed to fetch memory:", err);
+        console.error("Failed to fetch memory from API, trying local fallback:", err);
+        // Fallback to IndexedDB
+        try {
+          const localNodes = await db.memoryNodes.where('projectId').equals(currentProject?.projectId || '').toArray();
+          if (localNodes.length > 0) {
+            setMemoryData({
+              nodes: localNodes.map((n, i) => ({
+                id: `local_${i}`,
+                label: n.text.slice(0, 30),
+                fullText: n.text,
+                type: n.type,
+                size: 15,
+                group: n.type === 'tone' ? 1 : 2
+              })),
+              links: [] // Links are harder to reconstruct locally without full VDB connectivity
+            });
+            showToast("Showing memory from local vault (offline fallback).");
+          }
+        } catch (dbErr) {
+          console.error("Local fallback also failed:", dbErr);
+        }
       } finally {
         setLoading(false);
       }
@@ -2436,6 +2460,19 @@ export default function App() {
       }
       
       console.log('Ingestion result:', result);
+      
+      // Cache memory nodes locally in IndexedDB
+      if (result && result.rows) {
+        console.log(`[IndexedDB] Caching ${result.rows.length} memory clusters for ${projectId}...`);
+        const memoryNodes = result.rows.map((row: any) => ({
+          projectId: projectId,
+          text: row.text,
+          vector: row.vector,
+          type: 'concept' // Default to concept for local indexing
+        }));
+        await db.memoryNodes.bulkAdd(memoryNodes);
+      }
+      
       setIsIngesting(false);
       showToast("Creative inputs ingested and indexed.");
     } catch (error) {
@@ -2604,6 +2641,41 @@ export default function App() {
       setIsNeuralLoading(false);
     }
   };
+
+  // ─── Background Sync for Creative Memory Fallback ────────────────────────
+  useEffect(() => {
+    if (activeView === 'library' || activeView === 'memory') {
+      const syncMemory = async () => {
+        try {
+          // Find projects that don't have local memory nodes cached
+          const projects = await db.projects.toArray();
+          for (const project of projects) {
+            const localCount = await db.memoryNodes.where('projectId').equals(project.projectId).count();
+            if (localCount === 0) {
+              console.log(`[IndexedDB] Syncing background memory nodes for: ${project.projectName}`);
+              const response = await fetch(`/api/memory/browse?projectId=${project.projectId}`, {
+                headers: getSettingsHeaders()
+              });
+              const data = await response.json();
+              if (data.success && data.nodes && data.nodes.length > 0) {
+                const nodesToCache = data.nodes.map((node: any) => ({
+                  projectId: project.projectId,
+                  text: node.fullText || node.label,
+                  vector: [], // Vectors aren't returned currently by browse, which is fine for basic fallback text
+                  type: node.type || 'concept'
+                }));
+                await db.memoryNodes.bulkAdd(nodesToCache);
+                console.log(`[IndexedDB] Cached ${nodesToCache.length} nodes for ${project.projectName}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("[IndexedDB] Background memory sync error:", err);
+        }
+      };
+      syncMemory();
+    }
+  }, [activeView, appSettings]);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
