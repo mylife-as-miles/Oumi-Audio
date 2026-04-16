@@ -1276,9 +1276,11 @@ export default function App() {
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         result = await response.json();
-        if (result && result.error) errorMessage = result.error;
+        // If the server returned a structured error, use the details for better debugging
+        if (result && result.error) {
+          errorMessage = result.details ? `${result.error}: ${result.details}` : result.error;
+        }
       } else {
-        // Not JSON, likely a server crash error page
         errorMessage = `Server Error (${response.status}): The server encountered an error and could not return a valid response.`;
       }
       
