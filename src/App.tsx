@@ -79,9 +79,6 @@ import { db } from './db';
 import WaveformVisualizer from './components/WaveformVisualizer';
 import SettingsPage from './components/SettingsPage';
 
-// ─── Contexts ─────────────────────────────────────────────────────────────
-const ToastContext = createContext<{ showToast: (msg: string) => void }>({ showToast: () => {} });
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface NeuralInsights {
@@ -2096,7 +2093,7 @@ const LegendItem = ({ color, label }: { color: string, label: string }) => (
 );
 
 const MemoryPage = ({ currentProject, headers = {} }: { currentProject?: any, headers?: Record<string, string> }) => {
-  const { showToast } = useContext(ToastContext);
+  const { showToast } = useToast();
   const [memoryData, setMemoryData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
