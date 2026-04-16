@@ -8,7 +8,17 @@ const require = createRequire(import.meta.url);
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// Vercel Config to support larger payload limits
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
 
 // Add health check for easier debugging
 app.get("/api/health", (req, res) => {

@@ -2463,13 +2463,24 @@ export default function App() {
       formData.append('campaignType', projectData.campaignType);
       formData.append('goal', projectData.goal);
       
+      const totalSize = projectData.uploadedFiles.reduce((acc: number, f: File) => acc + f.size, 0);
+      const MAX_SIZE_BYTES = 4.2 * 1024 * 1024; // 4.2MB limit for safety
+
+      if (totalSize > MAX_SIZE_BYTES) {
+        throw new Error(`Total file size too large (${(totalSize / 1024 / 1024).toFixed(1)}MB). Vercel has a hard limit of 4.5MB per request. Please upload fewer or smaller files.`);
+      }
+
       projectData.uploadedFiles.forEach((f: File) => {
         formData.append('files', f);
       });
 
+      // Special handling for FormData: remove Content-Type so the browser sets it with the correct boundary
+      const baseHeaders = getSettingsHeaders({});
+      const { 'Content-Type': _, ...uploadHeaders } = baseHeaders;
+
       const response = await fetch('/api/projects/ingest', {
         method: 'POST',
-        headers: getSettingsHeaders({}), // FormData handles its own contentType, but we can pass other keys
+        headers: uploadHeaders,
         body: formData,
       });
 
