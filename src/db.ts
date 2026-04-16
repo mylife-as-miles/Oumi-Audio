@@ -7,6 +7,7 @@ export interface Project {
   campaignType: string;
   goal: string;
   createdAt: Date;
+  lastModified: Date;
 }
 
 export interface ProjectFile {
@@ -18,15 +19,37 @@ export interface ProjectFile {
   data: Blob;
 }
 
+export interface Variant {
+  id?: number;
+  projectId: string;
+  variantId: string;
+  name: string;
+  type: string;
+  typeColor: string;
+  bgType: string;
+  timeAgo: string;
+  timestamp: number;
+  quality: string;
+  sampleRate: string;
+  duration: string;
+  score: number;
+  memoryRetention: string;
+  brandAffinity: string;
+  audioUrl: string;
+  script: string;
+}
+
 export class OumiDatabase extends Dexie {
   projects!: Table<Project, number>;
   files!: Table<ProjectFile, number>;
+  variants!: Table<Variant, number>;
 
   constructor() {
     super('OumiDatabase');
-    this.version(1).stores({
+    this.version(2).stores({
       projects: '++id, projectId, projectName',
-      files: '++id, projectId, name'
+      files: '++id, projectId, name',
+      variants: '++id, projectId, variantId'
     });
   }
 }

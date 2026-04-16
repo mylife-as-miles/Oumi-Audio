@@ -347,7 +347,21 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-const Sidebar = ({ className = "", onClose, onNewProject }: { className?: string, onClose?: () => void, onNewProject?: () => void }) => {
+const Sidebar = ({ 
+  className = "", 
+  onClose, 
+  onNewProject,
+  projects = [],
+  onSelectProject,
+  currentProjectId
+}: { 
+  className?: string, 
+  onClose?: () => void, 
+  onNewProject?: () => void,
+  projects?: any[],
+  onSelectProject?: (project: any) => void,
+  currentProjectId?: string
+}) => {
   const { showToast } = useToast();
   return (
   <aside className={`flex flex-col py-10 px-6 glass-panel z-50 ${className}`}>
@@ -389,6 +403,29 @@ const Sidebar = ({ className = "", onClose, onNewProject }: { className?: string
         <span className="font-headline text-[11px] uppercase tracking-widest">Settings</span>
       </a>
     </nav>
+
+    {/* Project List */}
+    <div className="mt-10 flex-1 overflow-y-auto custom-scrollbar pr-2">
+      <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50 px-4 mb-4">Recent Projects</h3>
+      <div className="space-y-1">
+        {projects.map((p) => (
+          <button
+            key={p.projectId}
+            onClick={() => {
+              if (onSelectProject) onSelectProject(p);
+              if (onClose) onClose();
+            }}
+            className={`w-full text-left px-4 py-2 rounded-lg transition-all group flex items-center gap-3 ${currentProjectId === p.projectId ? 'bg-primary/10 text-primary border border-primary/20' : 'text-on-surface-variant hover:bg-white/5 hover:text-on-surface border border-transparent'}`}
+          >
+            <FolderOpen size={16} className={currentProjectId === p.projectId ? 'text-primary' : 'text-on-surface-variant/40 group-hover:text-on-surface-variant'} />
+            <span className="text-[11px] truncate">{p.projectName}</span>
+          </button>
+        ))}
+        {projects.length === 0 && (
+          <p className="px-4 text-[10px] text-on-surface-variant/40 italic">No projects yet</p>
+        )}
+      </div>
+    </div>
     <div className="mt-auto pt-6 border-t border-outline/5">
       <a onClick={(e) => { e.preventDefault(); showToast("Opening Help Center..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2 px-4 rounded-lg text-on-surface-variant/60 hover:text-on-surface transition-colors" href="#">
         <HelpCircle size={18} strokeWidth={1.5} />
@@ -1152,10 +1189,11 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
                 <UploadCloud size={24} />
               </div>
               <p className="text-sm font-medium text-on-surface mb-1">Drag and drop files here</p>
-              <p className="text-xs text-on-surface-variant mb-4">PDF, DOCX, MP3, WAV up to 50MB</p>
+              <p className="text-xs text-on-surface-variant mb-4">PDF, Audio, or Images (JPG, PNG, WEBP) up to 50MB</p>
               <input 
                 type="file" 
                 multiple 
+                accept=".pdf,.mp3,.wav,.m4a,.jpg,.jpeg,.png,.webp"
                 className="hidden" 
                 ref={fileInputRef} 
                 onChange={handleFileSelect} 
@@ -1174,8 +1212,14 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
                 {uploadedFiles.map((file, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-surface-container/40 border border-outline/10 rounded-xl p-3">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 text-primary rounded-lg">
-                        {file.name.endsWith('.pdf') ? <FileText size={16} /> : <FileAudio size={16} />}
+                      <div className="p-2 bg-primary/10 text-primary rounded-lg overflow-hidden flex items-center justify-center">
+                        {file.name.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+                          <Eye size={16} />
+                        ) : file.name.endsWith('.pdf') ? (
+                          <FileText size={16} />
+                        ) : (
+                          <FileAudio size={16} />
+                        )}
                       </div>
                       <div>
                         <p className="text-xs font-medium text-on-surface">{file.name}</p>
@@ -1252,6 +1296,34 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const [projectsList, setProjectsList] = useState<any[]>([]);
+
+  // Load projects list on mount
+  useEffect(() => {
+    const loadProjects = async () => {
+      const projects = await db.projects.orderBy('lastModified').reverse().toArray();
+      setProjectsList(projects);
+    };
+    loadProjects();
+  }, []);
+
+  // Load variants when project changes
+  useEffect(() => {
+    if (currentProject) {
+      const loadVariants = async () => {
+        const savedVariants = await db.variants
+          .where('projectId')
+          .equals(currentProject.projectId)
+          .reverse()
+          .toArray();
+        setVariants(savedVariants);
+      };
+      loadVariants();
+    } else {
+      setVariants([]);
+    }
+  }, [currentProject]);
+
   const handleCreateProject = async (projectData: any) => {
     const projectId = `proj_${Date.now()}`;
     const projectWithId = { ...projectData, projectId };
@@ -1266,7 +1338,8 @@ export default function App() {
         projectName: projectData.projectName,
         campaignType: projectData.campaignType,
         goal: projectData.goal,
-        createdAt: new Date()
+        createdAt: new Date(),
+        lastModified: new Date()
       });
 
       for (const file of projectData.uploadedFiles) {
@@ -1365,6 +1438,15 @@ export default function App() {
         script: v.prompt
       }));
 
+      // Persist to Dexie
+      for (const v of processedVariants) {
+        await db.variants.add({
+          projectId: currentProject.projectId,
+          variantId: `var_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          ...v
+        });
+      }
+
       setVariants(prev => [...processedVariants, ...prev]);
       showToast(`Generated ${processedVariants.length} audio variants!`);
     } catch (error) {
@@ -1451,7 +1533,13 @@ export default function App() {
     <ToastContext.Provider value={{ showToast }}>
     <div className="flex h-screen overflow-hidden bg-background text-on-surface selection:bg-primary/30 selection:text-on-surface antialiased">
       {/* Desktop Sidebar */}
-      <Sidebar onNewProject={() => setIsNewProjectModalOpen(true)} className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" />
+      <Sidebar 
+        onNewProject={() => setIsNewProjectModalOpen(true)} 
+        projects={projectsList}
+        onSelectProject={setCurrentProject}
+        currentProjectId={currentProject?.projectId}
+        className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" 
+      />
       
       {/* Left Mobile Sidebar Overlay */}
       <AnimatePresence>
@@ -1466,7 +1554,14 @@ export default function App() {
               initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }}
               className="fixed inset-y-0 left-0 z-[70] w-64 bg-background border-r border-outline/10 shadow-2xl lg:hidden"
             >
-              <Sidebar onNewProject={() => setIsNewProjectModalOpen(true)} className="h-full w-full border-none" onClose={() => setIsLeftMenuOpen(false)} />
+              <Sidebar 
+                onNewProject={() => setIsNewProjectModalOpen(true)} 
+                projects={projectsList}
+                onSelectProject={setCurrentProject}
+                currentProjectId={currentProject?.projectId}
+                className="h-full w-full border-none" 
+                onClose={() => setIsLeftMenuOpen(false)} 
+              />
             </motion.div>
           </>
         )}

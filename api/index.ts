@@ -252,7 +252,13 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
 
     let ai: GoogleGenAI | null = null;
     if (process.env.GEMINI_API_KEY) {
-      ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      // Per user request: use default project/location from ADC
+      ai = new GoogleGenAI({ 
+        apiKey: process.env.GEMINI_API_KEY,
+        vertexai: true,
+        project: process.env.GCP_PROJECT_ID || 'default',
+        location: process.env.GCP_LOCATION || 'us-central1'
+      });
     } else {
       console.warn("[Ingestion] GEMINI_API_KEY missing. Embeddings will use fallback random vectors.");
     }
@@ -298,6 +304,18 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
             console.error(`[Ingestion] Gemini transcription failed for ${file.originalname}:`, audioError);
             throw new Error(`Audio transcription failed for ${file.originalname}.`);
           }
+        } else if (lowName.endsWith(".jpg") || lowName.endsWith(".jpeg") || lowName.endsWith(".png") || lowName.endsWith(".webp")) {
+          console.log(`[Ingestion] Processing image: ${file.originalname}`);
+          // Images are indexed multimodally. We store the base64 for embedding.
+          extractedChunks.push({ 
+            text: `Image context: ${file.originalname}`, 
+            source: file.originalname,
+            image: {
+              data: file.buffer.toString("base64"),
+              mimeType: file.mimetype || "image/jpeg"
+            }
+          });
+          continue; // Image chunks are added directly, no need for split logic
         } else {
           // Default to text parsing for .txt, .docx, or unknown files
           text = file.buffer.toString("utf-8");
@@ -305,7 +323,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
 
         const chunks = text.split(/\n\s*\n/).filter((c) => c.trim().length > 0);
         for (const chunk of chunks) {
-          extractedChunks.push({ text: chunk, source: file.originalname });
+          extractedChunks.push({ text: chunk, source: file.originalname, image: undefined });
         }
       } catch (fileError) {
         console.error(`[Ingestion] Failed to process file ${file.originalname}:`, fileError);
@@ -320,17 +338,38 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
     console.log(`[Ingestion] Indexing ${extractedChunks.length} chunks into Turbopuffer...`);
     const ns = tpuf.namespace(`project-${projectId}`);
     
+    // Per user request: Clear the namespace before re-indexing
+    try {
+      console.log(`[Ingestion] Clearing namespace project-${projectId}...`);
+      await ns.delete_all();
+    } catch (clearError) {
+      console.warn(`[Ingestion] Could not clear namespace:`, clearError);
+    }
+    
     const rows = [];
     for (let i = 0; i < extractedChunks.length; i++) {
       const chunk = extractedChunks[i];
-      let vector = [Math.random(), Math.random()]; // fallback
+      let vector = new Array(3072).fill(0).map(() => Math.random()); // 3072d fallback
       
       if (ai) {
         try {
+          const contents: any[] = [{ text: chunk.text }];
+          
+          // If this chunk has image data, add it to the contents
+          if (chunk.image) {
+            contents.push({
+              inlineData: {
+                data: chunk.image.data,
+                mimeType: chunk.image.mimeType
+              }
+            });
+          }
+
           const embedding = await ai.models.embedContent({
-            model: "text-embedding-004",
-            contents: chunk.text,
+            model: "gemini-embedding-2-preview",
+            contents: contents,
           });
+          
           if (embedding.embeddings && embedding.embeddings.length > 0) {
             vector = embedding.embeddings[0].values;
           }
