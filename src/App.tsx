@@ -580,8 +580,8 @@ const Sidebar = ({
   onSelectProject?: (project: any) => void,
   onDeleteProject?: (project: any) => void,
   currentProjectId?: string,
-  activeView: 'dashboard' | 'library',
-  onViewChange: (view: 'dashboard' | 'library') => void
+  activeView: 'dashboard' | 'library' | 'memory',
+  onViewChange: (view: 'dashboard' | 'library' | 'memory') => void
 }) => {
   const { showToast } = useToast();
   return (
@@ -631,7 +631,15 @@ const Sidebar = ({
         <Music size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Library</span>
       </a>
-      <a onClick={(e) => { e.preventDefault(); showToast("Opening Creative Memory..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+      <a 
+        onClick={(e) => { 
+          e.preventDefault(); 
+          onViewChange('memory');
+          if (onClose) onClose(); 
+        }} 
+        className={`flex items-center gap-3 py-2.5 px-4 rounded-lg transition-all ${activeView === 'memory' ? 'text-primary bg-primary/5 font-medium' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'}`} 
+        href="#"
+      >
         <Brain size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Creative Memory</span>
       </a>
@@ -1869,6 +1877,378 @@ const DeleteConfirmationModal = ({ isOpen, projectName, onClose, onConfirm }: { 
   );
 };
 
+// ─── Creative Memory & Neural Connect Simulation ─────────────────────────
+
+const NeuralBrainGraph = ({ data, onSelectNode }: { data: { nodes: any[], links: any[] }, onSelectNode: (node: any) => void }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [nodes, setNodes] = useState<any[]>([]);
+  const [links, setLinks] = useState<any[]>([]);
+  const [hoveredNode, setHoveredNode] = useState<any>(null);
+  const [draggedNode, setDraggedNode] = useState<any>(null);
+
+  // Initialize simulation data
+  useEffect(() => {
+    if (!data.nodes.length) return;
+    
+    const initialNodes = data.nodes.map(n => ({
+      ...n,
+      x: Math.random() * 800,
+      y: Math.random() * 500,
+      vx: 0,
+      vy: 0,
+    }));
+    
+    setNodes(initialNodes);
+    setLinks(data.links);
+  }, [data]);
+
+  // Physics Simulation effect
+  useEffect(() => {
+    if (!nodes.length) return;
+
+    let animationId: number;
+    const step = () => {
+      setNodes(prevNodes => {
+        const newNodes = prevNodes.map(n => ({ ...n }));
+        
+        // Forces constants
+        const repulsion = 40;
+        const attraction = 0.05;
+        const centerForce = 0.01;
+        const damping = 0.95;
+        const centerX = 400;
+        const centerY = 250;
+
+        // 1. Repulsion force between all nodes
+        for (let i = 0; i < newNodes.length; i++) {
+          for (let j = i + 1; j < newNodes.length; j++) {
+            const dx = newNodes[i].x - newNodes[j].x;
+            const dy = newNodes[i].y - newNodes[j].y;
+            const distSq = dx * dx + dy * dy + 0.1;
+            const force = repulsion / distSq;
+            
+            const fx = (dx / Math.sqrt(distSq)) * force;
+            const fy = (dy / Math.sqrt(distSq)) * force;
+            
+            newNodes[i].vx += fx;
+            newNodes[i].vy += fy;
+            newNodes[j].vx -= fx;
+            newNodes[j].vy -= fy;
+          }
+        }
+
+        // 2. Attraction force for links
+        links.forEach(link => {
+          const sourceNode = newNodes.find(n => n.id === link.source);
+          const targetNode = newNodes.find(n => n.id === link.target);
+          if (sourceNode && targetNode) {
+            const dx = targetNode.x - sourceNode.x;
+            const dy = targetNode.y - sourceNode.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const force = (dist - 150) * attraction;
+            
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            
+            sourceNode.vx += fx;
+            sourceNode.vy += fy;
+            targetNode.vx -= fx;
+            targetNode.vy -= fy;
+          }
+        });
+
+        // 3. Center gravity
+        newNodes.forEach(n => {
+          n.vx += (centerX - n.x) * centerForce;
+          n.vy += (centerY - n.y) * centerForce;
+          
+          // Apply damping and update position
+          n.vx *= damping;
+          n.vy *= damping;
+          
+          if (n.id !== draggedNode?.id) {
+            n.x += n.vx;
+            n.y += n.vy;
+          }
+        });
+
+        return newNodes;
+      });
+      animationId = requestAnimationFrame(step);
+    };
+
+    animationId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animationId);
+  }, [nodes.length, links, draggedNode]);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (draggedNode) {
+      setNodes(prev => prev.map(n => n.id === draggedNode.id ? { ...n, x: mouseX, y: mouseY, vx: 0, vy: 0 } : n));
+      return;
+    }
+
+    const hit = nodes.find(n => {
+      const dx = n.x - mouseX;
+      const dy = n.y - mouseY;
+      return Math.sqrt(dx * dx + dy * dy) < n.size + 10;
+    });
+    setHoveredNode(hit || null);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (hoveredNode) {
+      setDraggedNode(hoveredNode);
+      onSelectNode(hoveredNode);
+    }
+  };
+
+  const handleMouseUp = () => setDraggedNode(null);
+
+  // Canvas rendering
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !nodes.length) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Links
+    ctx.lineWidth = 1;
+    links.forEach(l => {
+      const s = nodes.find(n => n.id === l.source);
+      const t = nodes.find(n => n.id === l.target);
+      if (s && t) {
+        const isRelated = hoveredNode?.id === s.id || hoveredNode?.id === t.id;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(t.x, t.y);
+        ctx.strokeStyle = isRelated ? 'rgba(123, 150, 255, 0.4)' : 'rgba(255, 255, 255, 0.05)';
+        ctx.stroke();
+        
+        if (isRelated) {
+          // Glow effect for active links
+          ctx.strokeStyle = 'rgba(123, 150, 255, 0.1)';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+      }
+    });
+
+    // Draw Nodes
+    nodes.forEach(n => {
+      const isHovered = hoveredNode?.id === n.id;
+      
+      // Node Glow
+      const gradient = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.size * 2);
+      let color = '222, 229, 255'; // Default white
+      if (n.type === 'concept') color = '204, 151, 255'; // Primary
+      if (n.type === 'tone') color = '105, 156, 255'; // Secondary
+      if (n.type === 'trigger') color = '231, 255, 196'; // Tertiary
+      if (n.type === 'project') color = '255, 123, 150'; // Pink
+
+      gradient.addColorStop(0, `rgba(${color}, ${isHovered ? 0.8 : 0.4})`);
+      gradient.addColorStop(1, `rgba(${color}, 0)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.size * 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core Circle
+      ctx.fillStyle = `rgba(${color}, ${isHovered ? 1 : 0.8})`;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Label
+      if (isHovered || true) {
+        ctx.font = `${isHovered ? 'bold' : 'normal'} 10px "Inter"`;
+        ctx.fillStyle = isHovered ? '#fff' : 'rgba(255,255,255,0.4)';
+        ctx.textAlign = 'center';
+        ctx.fillText(n.label, n.x, n.y + n.size + 15);
+      }
+    });
+  }, [nodes, hoveredNode, links]);
+
+  return (
+    <div className="relative w-full h-[600px] border border-outline/10 rounded-3xl overflow-hidden bg-surface-container-lowest/40 backdrop-blur-sm cursor-crosshair">
+      <canvas 
+        ref={canvasRef} 
+        width={800} 
+        height={600} 
+        className="w-full h-full"
+        onMouseMove={handleMouseMove}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      />
+      <div className="absolute top-6 left-6 flex flex-col gap-2">
+        <div className="flex items-center gap-2 bg-black/40 border border-outline/10 px-3 py-1.5 rounded-full backdrop-blur-md">
+          <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface">Neural Engine Live</span>
+        </div>
+        <div className="flex items-center gap-4 px-3 py-2">
+          <LegendItem color="bg-primary" label="Concepts" />
+          <LegendItem color="bg-secondary" label="Brand Tones" />
+          <LegendItem color="bg-tertiary" label="Triggers" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LegendItem = ({ color, label }: { color: string, label: string }) => (
+  <div className="flex items-center gap-2">
+    <div className={`w-1.5 h-1.5 rounded-full ${color}`} />
+    <span className="text-[9px] uppercase tracking-widest font-bold text-on-surface-variant/60">{label}</span>
+  </div>
+);
+
+const MemoryPage = ({ currentProject }: { currentProject?: any }) => {
+  const [memoryData, setMemoryData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMemory = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/memory/browse${currentProject ? `?projectId=${currentProject.projectId}` : ''}`);
+        const data = await response.json();
+        if (data.success) {
+          setMemoryData({ nodes: data.nodes, links: data.links });
+        }
+      } catch (err) {
+        console.error("Failed to fetch memory:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMemory();
+  }, [currentProject]);
+
+  return (
+    <div className="flex flex-col h-full gap-8 p-10">
+      <div className="flex justify-between items-end">
+        <header className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">Turbopuffer Index</span>
+            <span className="text-on-surface-variant/40 text-[10px] font-bold uppercase tracking-widest">Global Memory</span>
+          </div>
+          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Creative <span className="text-primary text-glow">Memory</span></h2>
+          <p className="text-on-surface-variant max-w-xl text-sm leading-relaxed">
+            Every brief, brand tone, and emotional hook is indexed into Oumi's high-dimensional vector space. Explore the semantic brain of your brand.
+          </p>
+        </header>
+        <div className="flex gap-4">
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50">Indexed Concepts</p>
+            <p className="text-2xl font-bold text-primary">{loading ? '--' : memoryData.nodes.length * 124}</p>
+          </div>
+          <div className="w-[1px] h-10 bg-outline/10 mx-2" />
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50">Vector Proximity</p>
+            <p className="text-2xl font-bold text-on-surface">99.2%</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="lg:col-span-3">
+          {loading ? (
+            <div className="w-full h-[600px] border border-outline/10 rounded-3xl flex items-center justify-center bg-surface-container-lowest/20">
+              <div className="text-center space-y-4">
+                <div className="w-12 h-12 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                <p className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant animate-pulse">Retrieving Semantic Vectors...</p>
+              </div>
+            </div>
+          ) : (
+            <NeuralBrainGraph data={memoryData} onSelectNode={setSelectedNode} />
+          )}
+        </div>
+
+        <div className="lg:col-span-1 space-y-6">
+          <AnimatePresence mode="wait">
+            {selectedNode ? (
+              <motion.div
+                key={selectedNode.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="glass-panel p-6 border border-outline/10 h-full flex flex-col"
+              >
+                <div className="mb-6">
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest ${selectedNode.type === 'concept' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-secondary/10 text-secondary border-secondary/20'} border`}>
+                    {selectedNode.type}
+                  </span>
+                  <h3 className="text-xl font-bold text-on-surface mt-3">{selectedNode.label}</h3>
+                </div>
+                
+                <div className="space-y-6 flex-1">
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/50">Semantic Influence</label>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-1.5 bg-surface-container rounded-full overflow-hidden">
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${selectedNode.size * 2}%` }} className="h-full bg-primary" />
+                      </div>
+                      <span className="text-xs font-bold text-on-surface">{Math.round(selectedNode.size * 3.4)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/50">Associated Clusters</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Premium Aesthetics', 'High Retention', 'Vibrant', 'Expert Context'].map(tag => (
+                        <span key={tag} className="px-2 py-1 rounded-lg bg-surface-container text-[10px] text-on-surface-variant">#{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl">
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">AI Recommendation</p>
+                    <p className="text-xs text-on-surface-variant leading-relaxed italic">"Cross-reference this concept with ASMR triggers for maximum brand affinity."</p>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setSelectedNode(null)}
+                  className="mt-6 w-full py-3 rounded-xl border border-outline/10 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant hover:bg-white/5 transition-all text-center"
+                >
+                  Clear Selection
+                </button>
+              </motion.div>
+            ) : (
+              <div className="glass-panel p-8 border border-outline/5 h-full flex flex-col items-center justify-center text-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-surface-container flex items-center justify-center text-on-surface-variant/40">
+                  <CursorClick icon={Brain} size={32} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-on-surface mb-1">Select a Node</h4>
+                  <p className="text-[10px] text-on-surface-variant uppercase tracking-widest leading-relaxed">Interact with the brain to explore semantic relationships.</p>
+                </div>
+              </div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CursorClick = ({ icon: Icon, size }: any) => {
+  return <div className="relative">
+    <Icon size={size} />
+    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-surface-container" />
+  </div>
+}
+
 export default function App() {
   const [isLeftMenuOpen, setIsLeftMenuOpen] = useState(false);
   const [isRightMenuOpen, setIsRightMenuOpen] = useState(false);
@@ -1951,7 +2331,7 @@ export default function App() {
   const [analyzingVariantId, setAnalyzingVariantId] = useState<string | null>(null);
   
   // Library State
-  const [activeView, setActiveView] = useState<'dashboard' | 'library'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'library' | 'memory'>('dashboard');
   const [globalVariants, setGlobalVariants] = useState<any[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [benchmarkingVariants, setBenchmarkingVariants] = useState<any[]>([]);
@@ -2339,46 +2719,57 @@ export default function App() {
                 <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
                   <div>
                     <ProjectContextBar project={currentProject} />
-                    <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
-                  </div>
-                  <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
-                  <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
-                  
-                  {/* Inline Neural Insights (mobile) */}
-                  {(neuralInsights || isNeuralLoading) && (
-                    <div className="xl:hidden">
-                      <NeuralInsightsPanel 
-                        insights={neuralInsights} 
-                        isLoading={isNeuralLoading} 
-                        onClose={() => { setNeuralInsights(null); setIsNeuralLoading(false); }} 
-                      />
+                      <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
                     </div>
-                  )}
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div 
-                key="library"
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.98 }}
-                transition={{ duration: 0.3 }}
-                className="w-full"
-              >
-                <LibraryPage 
-                  variants={globalVariants} 
-                  loading={libraryLoading} 
-                  onBenchmark={(v) => {
-                    if (benchmarkingVariants.find(bv => bv.id === v.id)) {
-                      setBenchmarkingVariants(prev => prev.filter(bv => bv.id !== v.id));
-                    } else {
-                      setBenchmarkingVariants(prev => [...prev, v]);
-                    }
-                  }}
-                  selectedBenchmarkIds={benchmarkingVariants.map(v => v.id)}
-                />
-              </motion.div>
-            )}
+                    <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
+                    <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
+                    
+                    {/* Inline Neural Insights (mobile) */}
+                    {(neuralInsights || isNeuralLoading) && (
+                      <div className="xl:hidden">
+                        <NeuralInsightsPanel 
+                          insights={neuralInsights} 
+                          isLoading={isNeuralLoading} 
+                          onClose={() => { setNeuralInsights(null); setIsNeuralLoading(false); }} 
+                        />
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ) : activeView === 'library' ? (
+                <motion.div 
+                  key="library"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  <LibraryPage 
+                    variants={globalVariants} 
+                    loading={libraryLoading} 
+                    onBenchmark={(v) => {
+                      if (benchmarkingVariants.find(bv => bv.id === v.id)) {
+                        setBenchmarkingVariants(prev => prev.filter(bv => bv.id !== v.id));
+                      } else {
+                        setBenchmarkingVariants(prev => [...prev, v]);
+                      }
+                    }}
+                    selectedBenchmarkIds={benchmarkingVariants.map(v => v.id)}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="memory"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4 }}
+                  className="w-full h-full min-h-[80vh] flex flex-col"
+                >
+                  <MemoryPage currentProject={currentProject} />
+                </motion.div>
+              )}
           </AnimatePresence>
         </div>
 

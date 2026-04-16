@@ -41,17 +41,25 @@ export interface Variant {
   tags?: string[];
 }
 
+export interface Setting {
+  id?: number;
+  key: string;
+  value: any;
+}
+
 export class OumiDatabase extends Dexie {
   projects!: Table<Project, number>;
   files!: Table<ProjectFile, number>;
   variants!: Table<Variant, number>;
+  settings!: Table<Setting, number>;
 
   constructor() {
     super('OumiDatabase');
-    this.version(3).stores({
+    this.version(4).stores({
       projects: '++id, projectId, projectName, lastModified',
       files: '++id, projectId, name',
-      variants: '++id, projectId, variantId, isFinalized, *tags'
+      variants: '++id, projectId, variantId, isFinalized, *tags',
+      settings: '++id, &key'
     });
   }
 }

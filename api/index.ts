@@ -17,18 +17,22 @@ app.get("/api/health", (req, res) => {
 
 // ─── AI Client Initializer ─────────────────────────────────────────────
 
-function getAIClient() {
-  if (process.env.GCP_PROJECT_ID && process.env.GCP_PROJECT_ID !== 'your-project-id') {
+function getAIClient(req?: express.Request) {
+  const geminiKey = req?.headers['x-gemini-key'] as string || process.env.GEMINI_API_KEY;
+  const gcpProject = req?.headers['x-gcp-project-id'] as string || process.env.GCP_PROJECT_ID;
+  const gcpLocation = req?.headers['x-gcp-location'] as string || process.env.GCP_LOCATION || 'us-central1';
+
+  if (gcpProject && gcpProject !== 'your-project-id') {
     // Vertex AI / ADC Mode
     return new GoogleGenAI({ 
       vertexai: true,
-      project: process.env.GCP_PROJECT_ID,
-      location: process.env.GCP_LOCATION || 'us-central1'
+      project: gcpProject,
+      location: gcpLocation
     });
-  } else if (process.env.GEMINI_API_KEY) {
+  } else if (geminiKey) {
     // Standard AI Mode
     return new GoogleGenAI({ 
-      apiKey: process.env.GEMINI_API_KEY 
+      apiKey: geminiKey 
     });
   }
   return null;
@@ -161,9 +165,10 @@ async function analyzeTribeText(text: string): Promise<{ plot: any; markdown: st
 
 async function interpretWithGemini(
   tribeOutputs: { script: string; markdown: string; variantName: string }[],
-  projectGoal?: string
+  projectGoal?: string,
+  req?: express.Request
 ): Promise<any> {
-  const ai = getAIClient();
+  const ai = getAIClient(req);
   if (!ai) {
     throw new Error("Gemini AI not configured (missing GEMINI_API_KEY or GCP_PROJECT_ID)");
   }
@@ -336,7 +341,7 @@ app.post("/api/generate-variants", async (req, res) => {
   try {
     const { projectId, goal } = req.body;
 
-    const ai = getAIClient();
+    const ai = getAIClient(req);
 
     let script = "Experience the ultimate hydration with our new premium skincare line. Because your skin deserves the best.";
     let title = "Premium Ad";
@@ -364,9 +369,10 @@ app.post("/api/generate-variants", async (req, res) => {
     }
 
     let audioBase64 = "";
-    if (process.env.ELEVENLABS_API_KEY) {
+    const elevenKey = req.headers['x-elevenlabs-key'] as string || process.env.ELEVENLABS_API_KEY;
+    if (elevenKey) {
       try {
-        const elevenlabs = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY });
+        const elevenlabs = new ElevenLabsClient({ apiKey: elevenKey });
         const audioStream = await elevenlabs.textToSpeech.convert("JBFqnCBsd6RMkjVDRZzb", {
           text: script,
           model_id: "eleven_monolingual_v1",
@@ -411,20 +417,21 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
       return res.status(400).json({ error: "No files provided for ingestion." });
     }
 
-    if (!process.env.TURBOPUFFER_API_KEY) {
-      console.error("[Ingestion] CRITICAL: TURBOPUFFER_API_KEY is missing from environment.");
+    const tpufKey = req.headers['x-turbopuffer-key'] as string || process.env.TURBOPUFFER_API_KEY;
+    if (!tpufKey) {
+      console.error("[Ingestion] CRITICAL: TURBOPUFFER_API_KEY is missing from environment or headers.");
       return res.status(500).json({ 
         error: "Database configuration missing (TURBOPUFFER_API_KEY).",
-        details: "Please ensure your vector database keys are set in the Vercel dashboard."
+        details: "Please ensure your vector database keys are set in Settings or the Vercel dashboard."
       });
     }
 
     const tpuf = new Turbopuffer({
-      apiKey: process.env.TURBOPUFFER_API_KEY,
-      region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
+      apiKey: tpufKey,
+      region: (req.headers['x-turbopuffer-region'] as string) || process.env.TURBOPUFFER_REGION || "gcp-us-central1",
     });
 
-    const ai = getAIClient();
+    const ai = getAIClient(req);
     if (!ai) {
       console.warn("[Ingestion] AI client not configured. Embeddings will use fallback random vectors.");
     }
@@ -645,7 +652,7 @@ app.post("/api/analyze-neural", async (req, res) => {
 
     // Step 2: Interpret with Gemini
     console.log("[Neural Analysis] Interpreting with Gemini...");
-    const insights = await interpretWithGemini(tribeResults, projectGoal);
+    const insights = await interpretWithGemini(tribeResults, projectGoal, req);
 
     // Step 3: Attach raw TRIBE data for transparency
     insights._raw = tribeResults.map((r) => ({
@@ -701,7 +708,8 @@ app.post("/api/analyze-audio-neural", upload.single("audio"), async (req, res) =
     // Interpret with Gemini
     const insights = await interpretWithGemini(
       [{ script: "(audio file — no script)", markdown, variantName }],
-      projectGoal
+      projectGoal,
+      req
     );
 
     insights._raw = [{ variantName, tribeMarkdown: markdown }];
@@ -723,18 +731,20 @@ app.post("/api/generate-music", async (req, res) => {
   try {
     const { prompt: userPrompt, count = 2, projectId } = req.body;
 
-    if (!process.env.ELEVENLABS_API_KEY) {
+    const elevenKey = req.headers['x-elevenlabs-key'] as string || process.env.ELEVENLABS_API_KEY;
+    if (!elevenKey) {
       return res.status(500).json({ error: "ElevenLabs API key missing." });
     }
 
     // Step 0: Fetch project context from Turbopuffer for smarter brainstorming
     let projectContext = "";
-    if (projectId && process.env.TURBOPUFFER_API_KEY) {
+    const tpufKey = req.headers['x-turbopuffer-key'] as string || process.env.TURBOPUFFER_API_KEY;
+    if (projectId && tpufKey) {
       try {
         console.log(`[Music Generation] Fetching context for project: ${projectId}`);
         const tpuf = new Turbopuffer({
-          apiKey: process.env.TURBOPUFFER_API_KEY,
-          region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
+          apiKey: tpufKey,
+          region: (req.headers['x-turbopuffer-region'] as string) || process.env.TURBOPUFFER_REGION || "gcp-us-central1",
         });
         const ns = tpuf.namespace(projectId);
         const searchResults = await ns.query({
@@ -752,7 +762,7 @@ app.post("/api/generate-music", async (req, res) => {
     // Step 1: Brainstorm specific musical prompts using Gemini
     let musicPrompts = [userPrompt];
     
-    const ai = getAIClient();
+    const ai = getAIClient(req);
     if (ai) {
       console.log(`[Music Generation] Brainstorming ${count} musical directions...`);
       try {
@@ -780,7 +790,7 @@ app.post("/api/generate-music", async (req, res) => {
     }
 
     const elevenlabs = new ElevenLabsClient({
-      apiKey: process.env.ELEVENLABS_API_KEY,
+      apiKey: elevenKey,
     });
 
     const variants = [];
@@ -796,7 +806,7 @@ app.post("/api/generate-music", async (req, res) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "xi-api-key": process.env.ELEVENLABS_API_KEY as string,
+            "xi-api-key": elevenKey,
           },
           body: JSON.stringify({
             prompt: finalPrompt,
@@ -840,6 +850,102 @@ app.post("/api/generate-music", async (req, res) => {
   } catch (error) {
     console.error("[Music Generation] Global Error:", error);
     res.status(500).json({ error: "Music generation failed", details: (error as Error).message });
+  }
+});
+
+/**
+ * GET /api/memory/browse
+ * Browse semantic clusters and concepts from Turbopuffer memory.
+ * Query: { projectId?: string, limit?: number }
+ */
+app.get("/api/memory/browse", async (req, res) => {
+  try {
+    const { projectId, limit = 30 } = req.query;
+    const tpufApiKey = process.env.TURBOPUFFER_API_KEY;
+
+    if (!tpufApiKey) {
+      // Mock data for development if TP key is missing
+      return res.json({
+        success: true,
+        source: 'mock',
+        nodes: [
+          { id: 'c1', label: 'Brand Identity', type: 'core', size: 25, group: 1 },
+          { id: 'c2', label: 'Target: Gen Z', type: 'audience', size: 18, group: 2 },
+          { id: 'c3', label: 'Skincare Routine', type: 'concept', size: 20, group: 3 },
+          { id: 't1', label: 'Energetic Tone', type: 'tone', size: 15, group: 1 },
+          { id: 't2', label: 'Educational', type: 'tone', size: 15, group: 1 },
+          { id: 'tr1', label: 'ASMR Tingles', type: 'trigger', size: 12, group: 3 },
+          { id: 'tr2', label: 'Fast Cuts', type: 'trigger', size: 12, group: 2 },
+          { id: 'p1', label: 'Spring Launch', type: 'project', size: 22, group: 4 },
+          { id: 'p2', label: 'Revival Campaign', type: 'project', size: 22, group: 4 },
+        ],
+        links: [
+          { source: 'c1', target: 't1', score: 0.9 },
+          { source: 'c1', target: 't2', score: 0.7 },
+          { source: 'c3', target: 'tr1', score: 0.85 },
+          { source: 'c2', target: 't1', score: 0.8 },
+          { source: 'c2', target: 'tr2', score: 0.95 },
+          { source: 'p1', target: 'c3', score: 0.9 },
+          { source: 'p2', target: 'c3', score: 0.8 },
+        ]
+      });
+    }
+
+    const tpuf = new Turbopuffer({
+      apiKey: tpufApiKey,
+      region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
+    });
+
+    // Strategy: Query Turbopuffer for the most significant concepts.
+    // If projectId is provided, query that namespace. If not, sample a broad set.
+    const namespaceName = (projectId as string) || "oumi_global_memory";
+    const ns = tpuf.namespace(namespaceName);
+
+    // Query for top concepts (using a dummy vector for global browse)
+    const searchResults = await ns.query({
+      rank_by: ["vector", "ANN", new Array(3072).fill(0)],
+      top_k: Number(limit),
+      include_attributes: ["text", "type", "score", "tags"],
+    });
+
+    const rows = (searchResults as any).rows || [];
+    
+    // Map vectors to nodes
+    const nodes = rows.map((r: any, idx: number) => ({
+      id: r.id || `n_${idx}`,
+      label: r.attributes?.text?.slice(0, 30) || "Unknown Concept",
+      fullText: r.attributes?.text,
+      type: r.attributes?.type || "concept",
+      size: 15 + (r.attributes?.score || 0) * 10,
+      group: r.attributes?.type === 'tone' ? 1 : 2
+    }));
+
+    // Simple proximity links (mocking links based on shared tags or proximity in our context)
+    const links: any[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        // If they share a type or are nearby in search results, link them
+        if (nodes[i].type === nodes[j].type || Math.abs(i - j) < 2) {
+          links.push({
+            source: nodes[i].id,
+            target: nodes[j].id,
+            score: 0.5 + Math.random() * 0.5
+          });
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      source: 'turbopuffer',
+      namespace: namespaceName,
+      nodes,
+      links
+    });
+
+  } catch (error) {
+    console.error("[Memory Browse] Error:", error);
+    res.status(500).json({ error: "Failed to browse creative memory", details: (error as Error).message });
   }
 });
 
