@@ -620,25 +620,48 @@ app.post("/api/generate-music", async (req, res) => {
     const variants = [];
 
     // Step 2: Generate tracks
+    const errors = [];
     for (let i = 0; i < Math.min(musicPrompts.length, count); i++) {
       try {
         const finalPrompt = musicPrompts[i];
-        console.log(`[Music Generation] Composing variant ${i + 1}/${count}: ${finalPrompt}`);
+        console.log(`[Music Generation] Composing variant ${i + 1}/${count} with model eleven_music_v1: ${finalPrompt}`);
         
         const audioStream = await elevenlabs.music.compose({
+          model_id: "eleven_music_v1",
           prompt: finalPrompt,
           musicLengthMs: 15000, // 15 seconds
         });
 
-        const chunks = [];
-        for await (const chunk of audioStream as any) {
-          chunks.push(chunk);
+        if (!audioStream) {
+          throw new Error("ElevenLabs returned an empty stream.");
         }
+
+        const chunks = [];
+        // Handle both Node.js streams and potential Web Streams
+        if (typeof (audioStream as any)[Symbol.asyncIterator] === 'function') {
+          for await (const chunk of audioStream as any) {
+            chunks.push(chunk);
+          }
+        } else if ((audioStream as any).getReader) {
+          const reader = (audioStream as any).getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+        } else {
+          throw new Error("Unsupported stream format from ElevenLabs SDK.");
+        }
+
+        if (chunks.length === 0) {
+          throw new Error("No audio chunks received from stream.");
+        }
+
         const audioBuffer = Buffer.concat(chunks);
         const base64Audio = audioBuffer.toString("base64");
 
         variants.push({
-          id: `var_${Date.now()}_${i}`,
+          id: `var_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
           name: `Variant ${i + 1}`,
           type: 'AI Generated',
           typeColor: 'text-tertiary',
@@ -648,14 +671,16 @@ app.post("/api/generate-music", async (req, res) => {
           timeAgo: 'Just now'
         });
         
-        console.log(`[Music Generation] Variant ${i + 1} complete.`);
+        console.log(`[Music Generation] Variant ${i + 1} complete (Size: ${audioBuffer.length} bytes).`);
       } catch (varError) {
-        console.error(`[Music Generation] Failed to generate variant ${i}:`, varError);
+        const msg = (varError as any).message || String(varError);
+        console.error(`[Music Generation] Failed to generate variant ${i}:`, msg);
+        errors.push(`Variant ${i + 1}: ${msg}`);
       }
     }
 
     if (variants.length === 0) {
-      throw new Error("No variants were successfully generated.");
+      throw new Error(`Technical failure in all variants. Details: ${errors.join('; ')}`);
     }
 
     res.json({ success: true, variants });

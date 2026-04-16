@@ -55,3 +55,15 @@ export class OumiDatabase extends Dexie {
 }
 
 export const db = new OumiDatabase();
+
+// Handle schema upgrades gracefully
+db.on('versionchange', () => {
+  console.log('[IndexedDB] Schema version changed elsewhere. Reloading...');
+  window.location.reload();
+});
+
+db.on('blocked', () => {
+  console.warn('[IndexedDB] Database upgrade is blocked by another tab.');
+  // Optionally inform the user, but often reloading the other tab is required.
+});
+
