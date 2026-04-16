@@ -130,14 +130,14 @@ RULES:
 
 // ─── Helper: Connect to TRIBE v2 and analyze text ──────────────────────────
 
-async function analyzeTribeText(text: string): Promise<{ plot: any; markdown: string; pdf: any }> {
+async function analyzeTribeText(text: string, hfTokenOverride?: string): Promise<{ plot: any; markdown: string; pdf: any }> {
   const timeout = 6000; // 6 second safety cutoff
   
   const analysisPromise = (async () => {
     // Dynamic import for ESM-only @gradio/client
     const { Client } = await import("@gradio/client");
     
-    const hfToken = process.env.HF_TOKEN || undefined;
+    const hfToken = hfTokenOverride || process.env.HF_TOKEN || undefined;
     const connectOptions: Record<string, unknown> = {};
     if (hfToken) connectOptions.hf_token = hfToken;
     const client = await Client.connect("Reino0ne/tribev2", connectOptions as any);
@@ -629,11 +629,12 @@ app.post("/api/analyze-neural", async (req, res) => {
 
     // Step 1: Send each script to TRIBE v2
     const tribeResults: { script: string; markdown: string; variantName: string }[] = [];
+    const hfToken = req.headers['x-hf-token'] as string || process.env.HF_TOKEN;
 
     for (const variant of variants) {
       try {
         console.log(`[Neural Analysis] Processing: ${variant.name}`);
-        const result = await analyzeTribeText(variant.script);
+        const result = await analyzeTribeText(variant.script, hfToken);
         tribeResults.push({
           script: variant.script,
           markdown: result.markdown,

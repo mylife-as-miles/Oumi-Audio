@@ -230,54 +230,30 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl overflow-hidden"
+      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl overflow-hidden flex flex-col h-full max-h-[85vh]"
     >
-      {/* Header */}
-      <div className="p-6 border-b border-outline/10 bg-surface-container-low/40">
-        <div className="flex items-center justify-between mb-6">
+      {/* Header - Sticky */}
+      <div className="px-6 py-4 border-b border-outline/10 bg-surface-container-low/80 backdrop-blur-md sticky top-0 z-30">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-2.5 rounded-xl text-primary">
-              <LayoutDashboard size={20} />
+            <div className="bg-primary/10 p-2 rounded-xl text-primary">
+              <LayoutDashboard size={18} />
             </div>
             <div>
-              <h3 className="text-xs uppercase tracking-[0.2em] font-bold text-on-surface">Neural Analysis</h3>
-              <p className="text-[10px] text-on-surface-variant mt-0.5">TRIBE v2 Intelligence Report</p>
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface">Neural Analysis</h3>
+              <p className="text-[9px] text-on-surface-variant">TRIBE v2 Intelligence Report</p>
             </div>
           </div>
           {onClose && (
             <button onClick={onClose} className="hover:bg-white/5 p-2 rounded-lg transition-colors">
-              <X size={18} />
+              <X size={16} />
             </button>
           )}
         </div>
-
-        {/* Quality Scorecard */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className={`col-span-1 md:col-span-1 p-6 rounded-2xl border transition-all duration-700 flex flex-col items-center justify-center text-center ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
-            <span className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2">Overall Score</span>
-            <div className={`text-4xl font-headline font-black ${qConfig.color}`}>{insights.summary?.overall_score || 0}</div>
-            <div className={`text-xl font-headline font-bold mt-1 opacity-80`}>{insights.summary?.grade || 'N/A'}</div>
-          </div>
-          <div className="col-span-1 md:col-span-3 p-6 bg-surface-container/30 border border-outline/10 rounded-2xl flex flex-col justify-center">
-            <div className="flex items-center gap-3 mb-2">
-              <div className={qConfig.color}>{qConfig.icon}</div>
-              <h4 className={`text-lg font-headline font-bold ${qConfig.color}`}>{insights.summary?.quality}</h4>
-              {isSimulated && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
-                  <span className="text-[8px] uppercase tracking-widest font-bold text-yellow-400">Neural Bypass</span>
-                </div>
-              )}
-            </div>
-            <p className="text-sm text-on-surface/80 leading-relaxed font-light">
-              {insights.summary?.diagnosis}
-            </p>
-          </div>
-        </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex px-6 bg-surface-container-low/20 border-b border-outline/10">
+      {/* Navigation Tabs - Sticky */}
+      <div className="flex px-4 bg-surface-container-low/80 backdrop-blur-md border-b border-outline/10 sticky top-[61px] z-20 overflow-x-auto no-scrollbar">
         {[
           { key: 'overview' as const, label: 'Scorecard', icon: <BarChart3 size={14} /> },
           { key: 'actions' as const, label: 'Action Plan', icon: <Lightbulb size={14} /> },
@@ -287,7 +263,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-6 py-4 text-[10px] uppercase tracking-widest font-bold transition-all border-b-2 -mb-[1px] ${
+            className={`flex items-center gap-2 px-4 py-3 text-[9px] uppercase tracking-widest font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
               activeTab === tab.key
                 ? 'text-primary border-primary bg-primary/5'
                 : 'text-on-surface-variant border-transparent hover:text-on-surface hover:bg-white/5'
@@ -298,11 +274,34 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
         ))}
       </div>
 
-      {/* Content Area */}
-      <div className="p-8">
+      {/* Content Area - Scrollable */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
-            <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10">
+            <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+              {/* Quality Scorecard - Now inside scrollable area */}
+              <div className="flex flex-col gap-4">
+                <div className={`p-6 rounded-2xl border transition-all duration-700 flex flex-col items-center justify-center text-center ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
+                  <span className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Overall Score</span>
+                  <div className={`text-5xl font-headline font-black ${qConfig.color}`}>{insights.summary?.overall_score || 0}</div>
+                  <div className={`text-xl font-headline font-bold opacity-80`}>{insights.summary?.grade || 'N/A'}</div>
+                </div>
+                <div className="p-6 bg-surface-container/30 border border-outline/10 rounded-2xl flex flex-col justify-center">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={qConfig.color}>{qConfig.icon}</div>
+                    <h4 className={`text-lg font-headline font-bold ${qConfig.color}`}>{insights.summary?.quality}</h4>
+                    {isSimulated && (
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-yellow-400/10 border border-yellow-400/20 rounded-md">
+                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                        <span className="text-[8px] uppercase tracking-widest font-bold text-yellow-400">Neural Bypass</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-on-surface/80 leading-relaxed font-light">
+                    {insights.summary?.diagnosis}
+                  </p>
+                </div>
+              </div>
               {/* Category Breakdown */}
               {insights.category_breakdown && (
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
