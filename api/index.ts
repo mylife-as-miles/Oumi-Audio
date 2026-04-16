@@ -247,6 +247,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
 
     const tpuf = new Turbopuffer({
       apiKey: process.env.TURBOPUFFER_API_KEY,
+      region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
     });
 
     let ai: GoogleGenAI | null = null;
