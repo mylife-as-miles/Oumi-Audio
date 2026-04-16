@@ -46,14 +46,57 @@ Convert this raw neural data into the EXACT JSON schema below. Return ONLY valid
 
 {
   "summary": {
+    "overall_score": 77,
+    "grade": "B+",
     "quality": "Bad | Average | Good | Strong | Elite",
     "diagnosis": "One-sentence diagnosis of the content"
   },
+  "category_breakdown": [
+    { 
+      "label": "Auditory & Language | Executive & Motor | Attention & Spatial | Visual Processing | Emotion & Decision",
+      "score": 78,
+      "grade": "B+",
+      "description": "Speech comprehension, voice impact, word meaning, etc."
+    }
+  ],
+  "engagement_profile": {
+    "auditory": 78,
+    "executive": 78,
+    "attention": 79,
+    "visual": 74,
+    "emotion": 78
+  },
+  "engagement_timeline": [
+    { "second": 1, "score": 0.1175, "level": "Low | Mid | High" }
+  ],
+  "peak_engagement": {
+    "second": 16,
+    "score": 0.1576
+  },
+  "brain_laterality": {
+    "left": 0.05152,
+    "right": 0.06346,
+    "dominant": "Left Brain | Right Brain",
+    "description": "Explain the dominance and what it means for the content"
+  },
+  "predictive_metrics": {
+    "watch_through_rate": 95,
+    "ad_recall_24hr": 70,
+    "purchase_intent": 67,
+    "virality": 69,
+    "cognitive_load": 78,
+    "optimal_length": 16,
+    "best_fit": "Informational | Emotional | Hard-Sell | Branding"
+  },
+  "key_findings": "Summary of the strongest signals detected",
   "weaknesses": [
     "Specific problem grounded in the data (3-5 items)"
   ],
   "actions": [
     "Clear, specific optimization action mapped to data (3-5 items)"
+  ],
+  "strategic_plan": [
+    "Scale and distribute advice based on neural profile"
   ],
   "optimized_script": "If a script was provided, rewrite a higher-performing version optimized for early hook, emotional clarity, shorter phrasing, and better pacing. If no script, set to null.",
   "variant_ranking": [
@@ -160,12 +203,77 @@ Return the JSON response now.`;
           summary: {
             type: "object",
             properties: {
+              overall_score: { type: "number" },
+              grade: { type: "string" },
               quality: { type: "string" },
               diagnosis: { type: "string" }
             }
           },
+          category_breakdown: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                score: { type: "number" },
+                grade: { type: "string" },
+                description: { type: "string" }
+              }
+            }
+          },
+          engagement_profile: {
+            type: "object",
+            properties: {
+              auditory: { type: "number" },
+              executive: { type: "number" },
+              attention: { type: "number" },
+              visual: { type: "number" },
+              emotion: { type: "number" }
+            }
+          },
+          engagement_timeline: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                second: { type: "number" },
+                score: { type: "number" },
+                level: { type: "string" }
+              }
+            }
+          },
+          peak_engagement: {
+            type: "object",
+            properties: {
+              second: { type: "number" },
+              score: { type: "number" }
+            }
+          },
+          brain_laterality: {
+            type: "object",
+            properties: {
+              left: { type: "number" },
+              right: { type: "number" },
+              dominant: { type: "string" },
+              description: { type: "string" }
+            }
+          },
+          predictive_metrics: {
+            type: "object",
+            properties: {
+              watch_through_rate: { type: "number" },
+              ad_recall_24hr: { type: "number" },
+              purchase_intent: { type: "number" },
+              virality: { type: "number" },
+              cognitive_load: { type: "number" },
+              optimal_length: { type: "number" },
+              best_fit: { type: "string" }
+            }
+          },
+          key_findings: { type: "string" },
           weaknesses: { type: "array", items: { type: "string" } },
           actions: { type: "array", items: { type: "string" } },
+          strategic_plan: { type: "array", items: { type: "string" } },
           optimized_script: { type: "string" },
           variant_ranking: {
             type: "array",
