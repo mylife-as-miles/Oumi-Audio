@@ -59,10 +59,26 @@ import {
   LayoutDashboard,
   Clock,
   Compass,
+  Globe,
+  MessageSquare,
+  Waveform,
+  ChevronRight,
+  Lock,
+  Shield,
+  Maximize2,
+  CheckCircle2,
+  Copy,
+  Mic2,
+  Headphones,
+  User,
+  Heart,
+  Layers,
+  Code
 } from 'lucide-react';
 
 import { db } from './db';
 import WaveformVisualizer from './components/WaveformVisualizer';
+import SettingsPage from './components/SettingsPage';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -196,7 +212,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-surface-container-low/30 border border-primary/20 rounded-2xl p-8 relative overflow-hidden"
+        className="bg-surface-container-low/30 border border-primary/20 rounded-2xl p-6 relative overflow-hidden"
       >
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-[shimmer_2s_infinite] w-[200%] -translate-x-1/2"></div>
         <div className="flex flex-col items-center gap-4 relative z-10">
@@ -230,10 +246,10 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl overflow-hidden flex flex-col h-full max-h-[85vh]"
+      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl overflow-hidden"
     >
-      {/* Header - Sticky */}
-      <div className="px-6 py-4 border-b border-outline/10 bg-surface-container-low/80 backdrop-blur-md sticky top-0 z-30">
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-outline/10 bg-surface-container-low/40">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-primary/10 p-2 rounded-xl text-primary">
@@ -252,20 +268,20 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
         </div>
       </div>
 
-      {/* Navigation Tabs - Sticky */}
-      <div className="flex px-4 bg-surface-container-low/80 backdrop-blur-md border-b border-outline/10 sticky top-[61px] z-20 overflow-x-auto no-scrollbar">
+      {/* Navigation Tabs - Refactored to Wrap for Sidebar */}
+      <div className="flex flex-wrap gap-2 px-4 py-3 bg-surface-container-low/20 border-b border-outline/10">
         {[
-          { key: 'overview' as const, label: 'Scorecard', icon: <BarChart3 size={14} /> },
-          { key: 'actions' as const, label: 'Action Plan', icon: <Lightbulb size={14} /> },
-          ...(insights.optimized_script ? [{ key: 'script' as const, label: 'Script', icon: <FileText size={14} /> }] : []),
-          ...(insights._raw ? [{ key: 'raw' as const, label: 'Raw Data', icon: <Database size={14} /> }] : []),
+          { key: 'overview' as const, label: 'Score', icon: <BarChart3 size={12} /> },
+          { key: 'actions' as const, label: 'Actions', icon: <Lightbulb size={12} /> },
+          ...(insights.optimized_script ? [{ key: 'script' as const, label: 'Script', icon: <FileText size={12} /> }] : []),
+          ...(insights._raw ? [{ key: 'raw' as const, label: 'Raw', icon: <Database size={12} /> }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-3 text-[9px] uppercase tracking-widest font-bold transition-all border-b-2 -mb-[1px] whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] uppercase tracking-widest font-bold transition-all border ${
               activeTab === tab.key
-                ? 'text-primary border-primary bg-primary/5'
+                ? 'text-primary border-primary/30 bg-primary/10'
                 : 'text-on-surface-variant border-transparent hover:text-on-surface hover:bg-white/5'
             }`}
           >
@@ -274,15 +290,15 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
         ))}
       </div>
 
-      {/* Content Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+      {/* Content Area */}
+      <div className="p-6">
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              {/* Quality Scorecard - Now inside scrollable area */}
+              {/* Quality Scorecard */}
               <div className="flex flex-col gap-4">
                 <div className={`p-6 rounded-2xl border transition-all duration-700 flex flex-col items-center justify-center text-center ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
-                  <span className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-1">Overall Score</span>
+                  <span className="text-[9px] uppercase tracking-widest font-bold opacity-60 mb-1">Overall Score</span>
                   <div className={`text-5xl font-headline font-black ${qConfig.color}`}>{insights.summary?.overall_score || 0}</div>
                   <div className={`text-xl font-headline font-bold opacity-80`}>{insights.summary?.grade || 'N/A'}</div>
                 </div>
@@ -297,14 +313,14 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-on-surface/80 leading-relaxed font-light">
+                  <p className="text-[11px] text-on-surface/80 leading-relaxed font-light">
                     {insights.summary?.diagnosis}
                   </p>
                 </div>
               </div>
-              {/* Category Breakdown */}
+              {/* Category Breakdown - Now 2 cols for Sidebar */}
               {insights.category_breakdown && (
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   {insights.category_breakdown.map((cat, i) => (
                     <motion.div 
                       key={i}
@@ -324,7 +340,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                 </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              <div className="flex flex-col gap-10">
                 {/* Engagement Profile */}
                 <div>
                   <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-2 mb-6">
@@ -421,7 +437,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                 <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-2 mb-6">
                   <TrendingUp size={14} /> Predictive Insights
                 </h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   {[
                     { label: "Watch Thru", value: `${insights.predictive_metrics?.watch_through_rate}%`, icon: <Eye size={14} /> },
                     { label: "Ad Recall", value: `${insights.predictive_metrics?.ad_recall_24hr}%`, icon: <Brain size={14} /> },
@@ -464,7 +480,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                 <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-red-400 flex items-center gap-2 mb-6">
                   <AlertTriangle size={14} /> Detected Friction (Weaknesses)
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-4">
                   {insights.weaknesses?.map((w, i) => (
                     <motion.div 
                       key={i} 
@@ -579,8 +595,8 @@ const Sidebar = ({
   onSelectProject?: (project: any) => void,
   onDeleteProject?: (project: any) => void,
   currentProjectId?: string,
-  activeView: 'dashboard' | 'library' | 'memory',
-  onViewChange: (view: 'dashboard' | 'library' | 'memory') => void
+  activeView: 'dashboard' | 'library' | 'memory' | 'settings',
+  onViewChange: (view: 'dashboard' | 'library' | 'memory' | 'settings') => void
 }) => {
   const { showToast } = useToast();
   return (
@@ -642,7 +658,15 @@ const Sidebar = ({
         <Brain size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Creative Memory</span>
       </a>
-      <a onClick={(e) => { e.preventDefault(); showToast("Opening Settings..."); if (onClose) onClose(); }} className="flex items-center gap-3 py-2.5 px-4 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-all" href="#">
+      <a 
+        onClick={(e) => { 
+          e.preventDefault(); 
+          onViewChange('settings');
+          if (onClose) onClose(); 
+        }} 
+        className={`flex items-center gap-3 py-2.5 px-4 rounded-lg transition-all ${activeView === 'settings' ? 'text-primary bg-primary/5 font-medium' : 'text-on-surface-variant hover:text-on-surface hover:bg-white/5'}`} 
+        href="#"
+      >
         <Settings size={20} strokeWidth={1.5} />
         <span className="font-headline text-[11px] uppercase tracking-widest">Settings</span>
       </a>
@@ -2110,7 +2134,7 @@ const LegendItem = ({ color, label }: { color: string, label: string }) => (
   </div>
 );
 
-const MemoryPage = ({ currentProject }: { currentProject?: any }) => {
+const MemoryPage = ({ currentProject, headers = {} }: { currentProject?: any, headers?: Record<string, string> }) => {
   const [memoryData, setMemoryData] = useState<{ nodes: any[], links: any[] }>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -2119,7 +2143,9 @@ const MemoryPage = ({ currentProject }: { currentProject?: any }) => {
     const fetchMemory = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`/api/memory/browse${currentProject ? `?projectId=${currentProject.projectId}` : ''}`);
+        const response = await fetch(`/api/memory/browse${currentProject ? `?projectId=${currentProject.projectId}` : ''}`, {
+          headers
+        });
         const data = await response.json();
         if (data.success) {
           setMemoryData({ nodes: data.nodes, links: data.links });
@@ -2329,8 +2355,46 @@ export default function App() {
   const [isNeuralLoading, setIsNeuralLoading] = useState(false);
   const [analyzingVariantId, setAnalyzingVariantId] = useState<string | null>(null);
   
+  // App Settings for Header Injection
+  const [appSettings, setAppSettings] = useState<Record<string, string>>({});
+
+  // Load app settings on mount and when Settings table changes
+  const loadAppSettings = async () => {
+    try {
+      const allSettings = await db.settings.toArray();
+      const settingsMap = allSettings.reduce((acc, curr) => ({
+        ...acc,
+        [curr.key]: curr.value
+      }), {});
+      setAppSettings(settingsMap);
+    } catch (err) {
+      console.error("Failed to load settings:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadAppSettings();
+    
+    // Listen for settings refresh
+    const handleSettingsRefresh = () => loadAppSettings();
+    window.addEventListener('settings-refreshed', handleSettingsRefresh);
+    return () => window.removeEventListener('settings-refreshed', handleSettingsRefresh);
+  }, []);
+
+  const getSettingsHeaders = (extraHeaders: Record<string, string> = {}) => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...extraHeaders
+    };
+    if (appSettings.gemini_key) headers['x-gemini-key'] = appSettings.gemini_key;
+    if (appSettings.elevenlabs_key) headers['x-elevenlabs-key'] = appSettings.elevenlabs_key;
+    if (appSettings.turbopuffer_key) headers['x-turbopuffer-key'] = appSettings.turbopuffer_key;
+    if (appSettings.hf_token) headers['x-hf-token'] = appSettings.hf_token;
+    return headers;
+  };
+
   // Library State
-  const [activeView, setActiveView] = useState<'dashboard' | 'library' | 'memory'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'library' | 'memory' | 'settings'>('dashboard');
   const [globalVariants, setGlobalVariants] = useState<any[]>([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [benchmarkingVariants, setBenchmarkingVariants] = useState<any[]>([]);
@@ -2439,6 +2503,7 @@ export default function App() {
 
       const response = await fetch('/api/projects/ingest', {
         method: 'POST',
+        headers: getSettingsHeaders({}), // FormData handles its own contentType, but we can pass other keys
         body: formData,
       });
 
@@ -2480,7 +2545,7 @@ export default function App() {
     try {
       const response = await fetch('/api/generate-music', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getSettingsHeaders(),
         body: JSON.stringify({
           projectId: currentProject.projectId,
           prompt: currentProject.goal || "Create an engaging audio ad",
@@ -2567,7 +2632,7 @@ export default function App() {
     try {
       const response = await fetch('/api/analyze-neural', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getSettingsHeaders(),
         body: JSON.stringify({
           variants: [{ name: variant.name, script: variant.script }],
           projectGoal: currentProject?.goal,
@@ -2602,7 +2667,7 @@ export default function App() {
     try {
       const response = await fetch('/api/analyze-neural', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getSettingsHeaders(),
         body: JSON.stringify({
           variants: variantsWithScripts.map((v) => ({
             name: v.name,
@@ -2766,7 +2831,18 @@ export default function App() {
                   transition={{ duration: 0.4 }}
                   className="w-full h-full min-h-[80vh] flex flex-col"
                 >
-                  <MemoryPage currentProject={currentProject} />
+                  <MemoryPage currentProject={currentProject} headers={getSettingsHeaders()} />
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="settings"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4 }}
+                  className="w-full h-full min-h-[80vh] flex flex-col"
+                >
+                  <SettingsPage />
                 </motion.div>
               )}
           </AnimatePresence>
