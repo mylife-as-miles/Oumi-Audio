@@ -4,6 +4,8 @@ import {
   FolderOpen,
   Music,
   Brain,
+  Archive,
+  Star,
   Settings,
   HelpCircle,
   Search,
@@ -51,6 +53,8 @@ import {
   Lightbulb,
   RefreshCw,
   Eye,
+  Star,
+  Archive,
   ArrowRight,
   Crown,
   Video,
@@ -421,10 +425,16 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
 
 // ─── Sidebar ────────────────────────────────────────────────────────────────
 
-  onDeleteProject?: (project: any) => void,
-  currentProjectId?: string,
-  activeView: 'dashboard' | 'library',
-  onViewChange: (view: 'dashboard' | 'library') => void
+const Sidebar = ({ 
+  className, 
+  onClose, 
+  onNewProject, 
+  projects, 
+  onSelectProject, 
+  onDeleteProject, 
+  currentProjectId, 
+  activeView, 
+  onViewChange 
 }: { 
   className?: string, 
   onClose?: () => void, 
@@ -665,7 +675,31 @@ const Controls = ({ onGenerate, onAnalyzeAll, variants, isAnalyzing }: { onGener
   );
 };
 
-const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAnalyze, isAnalyzing }: { variant: any, rank: number, isSelected: boolean, onToggleSelect: (id: string) => void, onDelete: (id: string) => void, onAnalyze: (variant: any) => void, isAnalyzing: boolean }) => {
+const VariantCard = ({ 
+  variant, 
+  rank, 
+  isSelected, 
+  onToggleSelect, 
+  onDelete, 
+  onAnalyze, 
+  isAnalyzing,
+  showProject = false,
+  isBenchmarking = false,
+  onBenchmark,
+  onFinalize
+}: { 
+  variant: any, 
+  rank: number, 
+  isSelected: boolean, 
+  onToggleSelect: (id: string) => void, 
+  onDelete: (id: string) => void, 
+  onAnalyze: (variant: any) => void, 
+  isAnalyzing: boolean,
+  showProject?: boolean,
+  isBenchmarking?: boolean,
+  onBenchmark?: (variant: any) => void,
+  onFinalize?: (variant: any) => void
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -710,8 +744,20 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
                 #{rank}
               </span>
               <span className={`text-[9px] ${variant.typeColor} uppercase tracking-widest font-bold block`}>{variant.type}</span>
+              {variant.isFinalized && (
+                <span className="text-[9px] bg-primary/20 text-primary px-1.5 py-0.5 rounded uppercase font-bold tracking-widest flex items-center gap-1">
+                  <Star size={8} fill="currentColor" /> Finalized
+                </span>
+              )}
             </div>
-            <h4 className="font-headline font-semibold text-base tracking-tight text-on-surface">{variant.name}</h4>
+            <h4 className="font-headline font-semibold text-base tracking-tight text-on-surface flex items-center gap-2">
+              {variant.name}
+              {showProject && (
+                <span className="text-[10px] bg-white/5 border border-outline/10 px-2 py-0.5 rounded text-on-surface-variant font-normal">
+                  {variant.projectName}
+                </span>
+              )}
+            </h4>
             <p className="text-[9px] text-on-surface-variant/50 uppercase tracking-widest mt-1">{variant.timeAgo} • {variant.sampleRate} {variant.quality}</p>
           </div>
         </div>
@@ -747,6 +793,28 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
               <Trash2 size={16} />
             </button>
             <span className="absolute -top-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">Delete</span>
+          </div>
+          <div className="relative group flex items-center justify-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); if (onBenchmark) onBenchmark(variant); }} 
+              className={`transition-colors p-1 ${isBenchmarking ? 'text-primary' : 'text-on-surface-variant/40 hover:text-primary'}`}
+            >
+              <BarChart3 size={16} />
+            </button>
+            <span className="absolute -top-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">
+              {isBenchmarking ? 'Remove from Benchmark' : 'Add to Benchmark'}
+            </span>
+          </div>
+          <div className="relative group flex items-center justify-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); if (onFinalize) onFinalize(variant); }} 
+              className={`transition-colors p-1 ${variant.isFinalized ? 'text-primary' : 'text-on-surface-variant/40 hover:text-primary'}`}
+            >
+              <Star size={16} fill={variant.isFinalized ? "currentColor" : "none"} />
+            </button>
+            <span className="absolute -top-8 scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100 transition-all bg-surface-container-high text-on-surface text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none border border-outline/10 z-10">
+              {variant.isFinalized ? 'Unfinalize Asset' : 'Mark as Finalized'}
+            </span>
           </div>
           <div className="relative group flex items-center justify-center">
             <button className="text-on-surface-variant/40 hover:text-on-surface transition-colors p-1">
@@ -1390,6 +1458,233 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
   );
 };
 
+// ─── Benchmarking & Comparison ───────────────────────────────────────────
+
+const ComparisonChart = ({ variants }: { variants: any[] }) => {
+  const metrics = [
+    { key: 'score', label: 'Overall', color: 'text-tertiary', bg: 'bg-tertiary' },
+    { key: 'memoryRetention', label: 'Memory', color: 'text-secondary', bg: 'bg-secondary' },
+    { key: 'brandAffinity', label: 'Affinity', color: 'text-primary', bg: 'bg-primary' },
+  ];
+
+  return (
+    <div className="space-y-8 py-6">
+      {metrics?.map(metric => (
+        <div key={metric.key} className="space-y-3">
+          <div className="flex justify-between items-center">
+            <h5 className={`text-[10px] uppercase tracking-widest font-bold ${metric.color}`}>{metric.label}</h5>
+          </div>
+          <div className="space-y-4">
+            {variants?.map((v, i) => {
+              const val = parseFloat(String(v[metric.key]).replace('%', '')) || 0;
+              const max = 10; // Assuming scores are out of 10 or 100%
+              const width = Math.min((val / max) * 100, 100);
+              
+              return (
+                <div key={v.id} className="space-y-1">
+                  <div className="flex justify-between items-center text-[10px] text-on-surface-variant font-medium">
+                    <span>{v.name}</span>
+                    <span className="text-on-surface">{v[metric.key]}</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-surface-container rounded-full overflow-hidden border border-outline/5">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${width}%` }}
+                      transition={{ duration: 1, delay: i * 0.1 }}
+                      className={`h-full ${metric.bg} shadow-[0_0_10px_rgba(var(--color-${metric.key}),0.3)]`}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ComparisonDrawer = ({ variants, onClose }: { variants: any[], onClose: () => void }) => {
+  return (
+    <motion.aside 
+      initial={{ x: '100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: '100%' }}
+      className="fixed inset-y-0 right-0 z-[100] w-full max-w-lg bg-surface-container-lowest border-l border-outline/10 shadow-2xl flex flex-col"
+    >
+      <div className="p-6 border-b border-outline/10 flex justify-between items-center bg-surface-container-low">
+        <div>
+          <h3 className="text-lg font-headline font-bold text-on-surface">Neural Benchmarking</h3>
+          <p className="text-[10px] text-on-surface-variant uppercase tracking-widest mt-1">Side-by-side performance comparison</p>
+        </div>
+        <button onClick={onClose} className="p-2 rounded-full hover:bg-white/5 text-on-surface-variant transition-colors">
+          <X size={20} />
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+        <div className="flex gap-4 mb-10 overflow-x-auto pb-4 no-scrollbar">
+          {variants?.map(v => (
+            <div key={v.id} className="min-w-[160px] p-4 rounded-2xl bg-surface-container border border-outline/5 relative group">
+              <span className="text-[8px] uppercase tracking-tighter text-on-surface-variant mb-1 block truncate">{v.projectName}</span>
+              <h4 className="text-xs font-bold text-primary truncate mb-3">{v.name}</h4>
+              <div className="flex gap-2">
+                <div className="text-[10px] font-bold text-tertiary">{v.score}</div>
+                <div className="text-[10px] font-bold text-secondary">{v.memoryRetention}</div>
+                <div className="text-[10px] font-bold text-primary">{v.brandAffinity}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="glass-panel p-6 rounded-3xl border-primary/10">
+          <div className="flex items-center gap-2 mb-6">
+            <Activity size={18} className="text-primary" />
+            <h4 className="text-xs uppercase tracking-widest font-bold text-on-surface">Cross-Variant Analytics</h4>
+          </div>
+          <ComparisonChart variants={variants} />
+        </div>
+      </div>
+
+      <div className="p-6 border-t border-outline/10 bg-surface-container-low flex gap-3">
+        <button onClick={onClose} className="flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest border border-outline/10 hover:bg-white/5 transition-all">Clear Selection</button>
+        <button className="flex-1 py-3 bg-primary text-on-primary rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">Export Report</button>
+      </div>
+    </motion.aside>
+  );
+};
+
+// ─── Library Page ────────────────────────────────────────────────────────
+
+const LibraryPage = ({ 
+  variants, 
+  loading, 
+  onBenchmark, 
+  selectedBenchmarkIds 
+}: { 
+  variants: any[], 
+  loading: boolean, 
+  onBenchmark: (v: any) => void,
+  selectedBenchmarkIds: string[]
+}) => {
+  const [search, setSearch] = useState('');
+  const [minAffinity, setMinAffinity] = useState(0);
+  const [onlyFinalized, setOnlyFinalized] = useState(false);
+  const { showToast } = useToast();
+
+  const filtered = variants?.filter(v => {
+    const matchesSearch = v.name.toLowerCase().includes(search.toLowerCase()) || 
+                         v.projectName.toLowerCase().includes(search.toLowerCase());
+    const val = parseFloat(String(v.brandAffinity).replace('%', '')) || 0;
+    const matchesAffinity = val >= minAffinity;
+    const matchesFinalized = onlyFinalized ? v.isFinalized : true;
+    return matchesSearch && matchesAffinity && matchesFinalized;
+  });
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-on-surface-variant">
+        <Loader2 size={48} className="animate-spin mb-4 text-primary/40" />
+        <p className="text-sm font-medium animate-pulse">Scanning the Vault...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+              <Archive size={20} />
+            </div>
+            <h2 className="text-3xl font-headline font-extrabold tracking-tight text-on-surface">The Vault</h2>
+          </div>
+          <p className="text-on-surface-variant text-sm max-w-md">Global creative intelligence and finalized asset management across all your projects.</p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 bg-surface-container-low/40 p-4 rounded-2xl border border-outline/5 backdrop-blur-md">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40" />
+            <input 
+              type="text" 
+              placeholder="Search assets or projects..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-surface-container/50 border border-outline/10 rounded-xl pl-10 pr-4 py-2 text-xs text-on-surface focus:border-primary/50 outline-none w-64 transition-all"
+            />
+          </div>
+          
+          <div className="h-8 w-[1px] bg-outline/10 mx-1" />
+
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-on-surface-variant">Min Affinity: {minAffinity}%</span>
+            <input 
+              type="range" 
+              min="0" 
+              max="10" 
+              step="0.5" 
+              value={minAffinity}
+              onChange={(e) => setMinAffinity(parseFloat(e.target.value))}
+              className="w-24 accent-primary" 
+            />
+          </div>
+
+          <div className="h-8 w-[1px] bg-outline/10 mx-1" />
+
+          <button 
+            onClick={() => setOnlyFinalized(!onlyFinalized)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-[10px] font-bold uppercase tracking-widest ${onlyFinalized ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-surface-container border-outline/10 text-on-surface-variant'}`}
+          >
+            <Star size={14} fill={onlyFinalized ? "currentColor" : "none"} />
+            Only Finalized
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pb-20">
+        <AnimatePresence>
+          {filtered?.map((variant, index) => (
+            <motion.div
+              key={variant.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <VariantCard 
+                variant={variant} 
+                rank={index + 1}
+                isSelected={false}
+                onToggleSelect={() => {}}
+                onDelete={() => {}} 
+                onAnalyze={() => {}} 
+                isAnalyzing={false}
+                showProject={true}
+                isBenchmarking={selectedBenchmarkIds.includes(variant.variantId)}
+                onBenchmark={() => onBenchmark(variant)}
+                onFinalize={async (v) => {
+                  const updated = !v.isFinalized;
+                  await db.variants.update(v.id, { isFinalized: updated });
+                  showToast(updated ? "Asset finalized for distribution" : "Asset removed from finalized list");
+                  window.dispatchEvent(new CustomEvent('variant-updated'));
+                }}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {filtered?.length === 0 && (
+          <div className="col-span-full py-20 text-center space-y-4">
+            <div className="w-16 h-16 bg-surface-container rounded-full flex items-center justify-center mx-auto text-on-surface-variant/40">
+              <Search size={32} />
+            </div>
+            <p className="text-on-surface-variant text-sm font-medium">No assets found matching your search criteria.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const DeleteConfirmationModal = ({ isOpen, projectName, onClose, onConfirm }: { isOpen: boolean, projectName: string, onClose: () => void, onConfirm: () => void }) => {
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
@@ -1504,6 +1799,23 @@ export default function App() {
       loadGlobalVariants();
     }
   }, [currentProject, activeView]);
+
+  // Refresh triggered by Library's finalize action
+  useEffect(() => {
+    const handleRefresh = async () => {
+      if (activeView === 'library') {
+        const allVariants = await db.variants.reverse().toArray();
+        const enriched = await Promise.all(allVariants.map(async (v) => {
+          const proj = await db.projects.where('projectId').equals(v.projectId).first();
+          return { ...v, projectName: proj?.projectName || 'Deleted Project' };
+        }));
+        setGlobalVariants(enriched);
+      }
+    };
+
+    window.addEventListener('variant-updated', handleRefresh);
+    return () => window.removeEventListener('variant-updated', handleRefresh);
+  }, [activeView]);
 
   const handleCreateProject = async (projectData: any) => {
     const projectId = `proj_${Date.now()}`;
@@ -1806,32 +2118,86 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <main className="lg:ml-60 flex flex-col xl:flex-row h-screen w-full">
+      <main className="lg:ml-60 flex flex-col xl:flex-row h-screen w-full relative">
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-background w-full">
           <Header onLeftMenuClick={() => setIsLeftMenuOpen(true)} onRightMenuClick={() => setIsRightMenuOpen(true)} />
-          <div className="px-4 md:px-10"><Hero /></div>
-          <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
-            <div>
-              <ProjectContextBar project={currentProject} />
-              <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
-            </div>
-            <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
-            <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
-            
-            {/* Inline Neural Insights (below variants, for larger screens) */}
-            {(neuralInsights || isNeuralLoading) && (
-              <div className="xl:hidden">
-                <NeuralInsightsPanel 
-                  insights={neuralInsights} 
-                  isLoading={isNeuralLoading} 
-                  onClose={() => { setNeuralInsights(null); setIsNeuralLoading(false); }} 
+          
+          <AnimatePresence mode="wait">
+            {activeView === 'dashboard' ? (
+              <motion.div 
+                key="dashboard"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.3 }}
+                className="w-full"
+              >
+                <div className="px-4 md:px-10"><Hero /></div>
+                <div className="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8">
+                  <div>
+                    <ProjectContextBar project={currentProject} />
+                    <CreativeMemoryBase isIngesting={isIngesting} project={currentProject} />
+                  </div>
+                  <Controls onGenerate={handleGenerateVariants} onAnalyzeAll={handleAnalyzeAll} variants={variants} isAnalyzing={isNeuralLoading} />
+                  <ActiveVariants variants={variants} setVariants={setVariants} onAnalyzeVariant={handleAnalyzeVariant} analyzingVariantId={analyzingVariantId} />
+                  
+                  {/* Inline Neural Insights (mobile) */}
+                  {(neuralInsights || isNeuralLoading) && (
+                    <div className="xl:hidden">
+                      <NeuralInsightsPanel 
+                        insights={neuralInsights} 
+                        isLoading={isNeuralLoading} 
+                        onClose={() => { setNeuralInsights(null); setIsNeuralLoading(false); }} 
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key="library"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.3 }}
+                className="w-full"
+              >
+                <LibraryPage 
+                  variants={globalVariants} 
+                  loading={libraryLoading} 
+                  onBenchmark={(v) => {
+                    if (benchmarkingVariants.find(bv => bv.id === v.id)) {
+                      setBenchmarkingVariants(prev => prev.filter(bv => bv.id !== v.id));
+                    } else {
+                      setBenchmarkingVariants(prev => [...prev, v]);
+                    }
+                  }}
+                  selectedBenchmarkIds={benchmarkingVariants.map(v => v.id)}
                 />
-              </div>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </div>
-        {/* Analytics Panel for Desktop */}
-        <AnalyticsPanel className="hidden xl:flex w-96 border-l border-outline/5 p-10" neuralInsights={neuralInsights} isNeuralLoading={isNeuralLoading} />
+
+        {/* Desktop Analytics Panel (Dashboard View Only) */}
+        {activeView === 'dashboard' && (
+          <AnalyticsPanel 
+            className="hidden xl:flex w-96 border-l border-outline/10 p-10 overflow-y-auto" 
+            neuralInsights={neuralInsights} 
+            isNeuralLoading={isNeuralLoading} 
+            onClose={() => setNeuralInsights(null)} 
+          />
+        )}
+        
+        {/* Comparison Drawer (Library View) */}
+        <AnimatePresence>
+          {activeView === 'library' && benchmarkingVariants.length > 0 && (
+            <ComparisonDrawer 
+              variants={benchmarkingVariants} 
+              onClose={() => setBenchmarkingVariants([])} 
+            />
+          )}
+        </AnimatePresence>
       </main>
 
       <AnimatePresence>
