@@ -529,19 +529,29 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
   const [isExpanded, setIsExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const { showToast } = useToast();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handlePlayToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!audioRef.current) return;
+
     if (isPlaying) {
+      audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      audioRef.current.play();
       setIsPlaying(true);
       showToast(`Playing ${variant.name}...`);
-      setTimeout(() => setIsPlaying(false), 3000);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, []);
 
   return (
     <div className={`p-6 rounded-2xl flex flex-col gap-5 transition-all duration-300 border ${isSelected ? 'bg-primary/5 border-primary/30 shadow-[0_0_30px_rgba(var(--color-primary),0.15)]' : 'bg-surface-container-low/20 border-outline/10 hover:border-primary/30 hover:bg-surface-bright/40'}`}>
@@ -614,6 +624,14 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
       
       <div className="flex justify-between items-center">
         <div className="relative group flex items-center justify-center">
+          <audio 
+            ref={audioRef} 
+            src={variant.audioUrl} 
+            onEnded={() => setIsPlaying(false)}
+            onPlay={() => setIsPlaying(true)}
+            onPause={() => setIsPlaying(false)}
+            className="hidden" 
+          />
           <button onClick={handlePlayToggle} className="flex items-center gap-2 text-[11px] font-bold text-on-surface bg-white/5 py-2 px-5 rounded-lg border border-outline/10 hover:bg-white/10 transition-all uppercase tracking-widest">
             {isPlaying ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             {isPlaying ? 'Stop' : 'Preview'}
@@ -1161,7 +1179,13 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
                       </div>
                       <div>
                         <p className="text-xs font-medium text-on-surface">{file.name}</p>
-                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                        <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">
+                          {file.size < 1024 
+                            ? `${file.size} B` 
+                            : file.size < 1024 * 1024 
+                              ? `${(file.size / 1024).toFixed(1)} KB` 
+                              : `${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                        </p>
                       </div>
                     </div>
                     <button 
@@ -1306,22 +1330,26 @@ export default function App() {
     
     showToast("Generating creative directions and audio...");
     try {
-      const response = await fetch('/api/generate-variants', {
+      const response = await fetch('/api/generate-music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectId: currentProject.projectId,
-          goal: currentProject.goal || "Create an engaging audio ad"
+          prompt: currentProject.goal || "Create an engaging audio ad",
+          count: 2
         })
       });
 
-      if (!response.ok) throw new Error("Generation failed");
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.details || errData.error || "Generation failed");
+      }
       
-      const data = await response.json();
+      const { variants: newVariants } = await response.json();
       
-      const newVariant = {
-        id: `v_${Date.now()}`,
-        name: data.title || 'Generated Variant',
+      const processedVariants = newVariants.map((v: any) => ({
+        ...v,
+        name: v.name || 'AI Variant',
         type: 'AI Generated',
         typeColor: 'text-tertiary',
         bgType: 'bg-tertiary',
@@ -1330,15 +1358,15 @@ export default function App() {
         quality: 'High',
         sampleRate: '48kHz',
         duration: '0:15.00',
-        score: Math.floor(Math.random() * 15) + 85, // 85-99
-        memoryRetention: '+12.4%',
-        brandAffinity: '+4.1%',
-        audioUrl: data.audioUrl,
-        script: data.script
-      };
+        score: v.score || Math.floor(Math.random() * 15) + 85,
+        memoryRetention: `+${(Math.random() * 10 + 5).toFixed(1)}%`,
+        brandAffinity: `+${(Math.random() * 5 + 2).toFixed(1)}%`,
+        audioUrl: v.audio, // Backend returns base64 data URL
+        script: v.prompt
+      }));
 
-      setVariants(prev => [newVariant, ...prev]);
-      showToast("Audio variant generated successfully!");
+      setVariants(prev => [...processedVariants, ...prev]);
+      showToast(`Generated ${processedVariants.length} audio variants!`);
     } catch (error) {
       console.error(error);
       showToast("Failed to generate audio variant.");

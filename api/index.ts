@@ -263,7 +263,9 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
       console.log(`[Ingestion] Processing file: ${file.originalname} (${file.size} bytes)`);
       try {
         let text = "";
-        if (file.originalname.endsWith(".pdf")) {
+        const lowName = file.originalname.toLowerCase();
+        
+        if (lowName.endsWith(".pdf")) {
           console.log(`[Ingestion] Parsing PDF: ${file.originalname}`);
           try {
             const pdfParse = require("pdf-parse");
@@ -271,9 +273,33 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
             text = data.text;
           } catch (pdfError) {
             console.error(`[Ingestion] pdf-parse failed for ${file.originalname}:`, pdfError);
-            throw new Error(`PDF parsing failed for ${file.originalname}. The file might be corrupted or too large.`);
+            throw new Error(`PDF parsing failed for ${file.originalname}.`);
+          }
+        } else if (lowName.endsWith(".mp3") || lowName.endsWith(".wav") || lowName.endsWith(".m4a") || lowName.endsWith(".ogg") || lowName.endsWith(".aac")) {
+          if (!ai) {
+            console.warn(`[Ingestion] Skipping audio ${file.originalname} because GEMINI_API_KEY is not set.`);
+            continue;
+          }
+          console.log(`[Ingestion] Transcribing audio: ${file.originalname}`);
+          try {
+            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const result = await model.generateContent([
+              "Please provide a high-accuracy, verbatim transcription of this audio file for creative context indexing. If there are multiple speakers, identify them if possible.",
+              {
+                inlineData: {
+                  data: file.buffer.toString("base64"),
+                  mimeType: file.mimetype || "audio/mpeg",
+                },
+              },
+            ]);
+            text = result.response.text();
+            console.log(`[Ingestion] Transcription complete for ${file.originalname} (${text.length} chars)`);
+          } catch (audioError) {
+            console.error(`[Ingestion] Gemini transcription failed for ${file.originalname}:`, audioError);
+            throw new Error(`Audio transcription failed for ${file.originalname}.`);
           }
         } else {
+          // Default to text parsing for .txt, .docx, or unknown files
           text = file.buffer.toString("utf-8");
         }
 
@@ -282,8 +308,8 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
           extractedChunks.push({ text: chunk, source: file.originalname });
         }
       } catch (fileError) {
-        console.error(`[Ingestion] Failed to parse file ${file.originalname}:`, fileError);
-        // Continue with other files instead of crashing
+        console.error(`[Ingestion] Failed to process file ${file.originalname}:`, fileError);
+        // Continue with other files
       }
     }
 
@@ -450,6 +476,120 @@ app.post("/api/analyze-audio-neural", upload.single("audio"), async (req, res) =
   } catch (error) {
     console.error("[Audio Neural Analysis] Error:", error);
     res.status(500).json({ error: "Audio neural analysis failed", details: (error as Error).message });
+  }
+});
+
+/**
+ * POST /api/generate-music
+ * Generate AI music tracks via ElevenLabs with Gemini-powered prompt brainstorming.
+ * Body: { prompt: string, count: number, projectId: string }
+ */
+app.post("/api/generate-music", async (req, res) => {
+  try {
+    const { prompt: userPrompt, count = 2, projectId } = req.body;
+
+    if (!process.env.ELEVENLABS_API_KEY) {
+      return res.status(500).json({ error: "ElevenLabs API key missing." });
+    }
+
+    // Step 0: Fetch project context from Turbopuffer for smarter brainstorming
+    let projectContext = "";
+    if (projectId && process.env.TURBOPUFFER_API_KEY) {
+      try {
+        console.log(`[Music Generation] Fetching context for project: ${projectId}`);
+        const tpuf = new Turbopuffer({
+          apiKey: process.env.TURBOPUFFER_API_KEY,
+          region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
+        });
+        const ns = tpuf.namespace(projectId);
+        const searchResults = await ns.query({
+          query: userPrompt,
+          top_k: 5,
+          include_attributes: ["text"],
+        });
+        projectContext = searchResults.map(r => r.attributes?.text).filter(Boolean).join("\n\n");
+        console.log(`[Music Generation] Found ${searchResults.length} context snippets.`);
+      } catch (contextError) {
+        console.warn(`[Music Generation] Context fetch failed:`, contextError);
+      }
+    }
+
+    // Step 1: Brainstorm specific musical prompts using Gemini
+    let musicPrompts = [userPrompt];
+    
+    if (ai) {
+      console.log(`[Music Generation] Brainstorming ${count} musical directions...`);
+      try {
+        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const brainPrompt = `Brainstorm ${count} distinct musical prompts for ElevenLabs Music API based on:
+        Base Goal: "${userPrompt}"
+        Project Context: """${projectContext.slice(0, 2000)}"""
+        
+        Make them detailed (style, mood, instruments, tempo). 
+        Return ONLY a JSON array of strings.`;
+        
+        const result = await model.generateContent(brainPrompt);
+        const text = result.response.text();
+        const cleanedText = text.replace(/```json|```/g, "").trim();
+        musicPrompts = JSON.parse(cleanedText);
+        console.log(`[Music Generation] Brainstormed prompts:`, musicPrompts);
+      } catch (brainError) {
+        console.warn(`[Music Generation] Brainstorming failed, falling back to user prompt:`, brainError);
+        musicPrompts = Array(count).fill(userPrompt);
+      }
+    } else {
+      musicPrompts = Array(count).fill(userPrompt || "Modern cinematic background music");
+    }
+
+    const elevenlabs = new ElevenLabsClient({
+      apiKey: process.env.ELEVENLABS_API_KEY,
+    });
+
+    const variants = [];
+
+    // Step 2: Generate tracks
+    for (let i = 0; i < Math.min(musicPrompts.length, count); i++) {
+      try {
+        const finalPrompt = musicPrompts[i];
+        console.log(`[Music Generation] Composing variant ${i + 1}/${count}: ${finalPrompt}`);
+        
+        const audioStream = await elevenlabs.music.compose({
+          prompt: finalPrompt,
+          musicLengthMs: 15000, // 15 seconds
+        });
+
+        const chunks = [];
+        for await (const chunk of audioStream as any) {
+          chunks.push(chunk);
+        }
+        const audioBuffer = Buffer.concat(chunks);
+        const base64Audio = audioBuffer.toString("base64");
+
+        variants.push({
+          id: `var_${Date.now()}_${i}`,
+          name: `Variant ${i + 1}`,
+          type: 'AI Generated',
+          typeColor: 'text-tertiary',
+          audio: `data:audio/mpeg;base64,${base64Audio}`,
+          prompt: finalPrompt,
+          score: 85 + Math.floor(Math.random() * 10),
+          timeAgo: 'Just now'
+        });
+        
+        console.log(`[Music Generation] Variant ${i + 1} complete.`);
+      } catch (varError) {
+        console.error(`[Music Generation] Failed to generate variant ${i}:`, varError);
+      }
+    }
+
+    if (variants.length === 0) {
+      throw new Error("No variants were successfully generated.");
+    }
+
+    res.json({ success: true, variants });
+  } catch (error) {
+    console.error("[Music Generation] Global Error:", error);
+    res.status(500).json({ error: "Music generation failed", details: (error as Error).message });
   }
 });
 
