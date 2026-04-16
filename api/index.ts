@@ -38,6 +38,12 @@ function getAIClient(req?: express.Request) {
   return null;
 }
 
+function getNamespaceName(projectId?: string) {
+  if (!projectId) return "oumi_global_memory";
+  if (projectId.startsWith("project-")) return projectId;
+  return `project-${projectId}`;
+}
+
 // ─── TRIBE v2 Intelligence Engine System Prompt ─────────────────────────────
 
 const INTELLIGENCE_ENGINE_PROMPT = `You are the Oumi Audio Intelligence Engine.
@@ -539,11 +545,13 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
     }
 
     console.log(`[Ingestion] Indexing ${extractedChunks.length} chunks into Turbopuffer...`);
-    const ns = tpuf.namespace(`project-${projectId}`);
+    const namespaceName = getNamespaceName(projectId);
+    console.log(`[Ingestion] Using namespace: ${namespaceName}`);
+    const ns = tpuf.namespace(namespaceName);
     
     // Per user request: Clear the namespace before re-indexing
     try {
-      console.log(`[Ingestion] Clearing namespace project-${projectId}...`);
+      console.log(`[Ingestion] Clearing namespace ${namespaceName}...`);
       await ns.deleteAll();
     } catch (clearError) {
       console.warn(`[Ingestion] Could not clear namespace:`, clearError);
@@ -747,7 +755,8 @@ app.post("/api/generate-music", async (req, res) => {
           apiKey: tpufKey,
           region: (req.headers['x-turbopuffer-region'] as string) || process.env.TURBOPUFFER_REGION || "gcp-us-central1",
         });
-        const ns = tpuf.namespace(projectId);
+        const namespaceName = getNamespaceName(projectId);
+        const ns = tpuf.namespace(namespaceName);
         const searchResults = await ns.query({
           rank_by: ["vector", "ANN", new Array(3072).fill(0)],
           top_k: 5,
@@ -861,11 +870,11 @@ app.post("/api/generate-music", async (req, res) => {
  */
 app.get("/api/memory/browse", async (req, res) => {
   try {
-    const { projectId, limit = 30 } = req.query;
-    const tpufApiKey = process.env.TURBOPUFFER_API_KEY;
+    const { projectId, limit = 50 } = req.query;
+    const tpufKey = req.headers['x-turbopuffer-key'] as string || process.env.TURBOPUFFER_API_KEY;
+    const region = (req.headers['x-turbopuffer-region'] as string) || process.env.TURBOPUFFER_REGION || "gcp-us-central1";
 
-    if (!tpufApiKey) {
-      // Mock data for development if TP key is missing
+    if (!tpufKey) {
       return res.json({
         success: true,
         source: 'mock',
@@ -873,65 +882,99 @@ app.get("/api/memory/browse", async (req, res) => {
           { id: 'c1', label: 'Brand Identity', type: 'core', size: 25, group: 1 },
           { id: 'c2', label: 'Target: Gen Z', type: 'audience', size: 18, group: 2 },
           { id: 'c3', label: 'Skincare Routine', type: 'concept', size: 20, group: 3 },
-          { id: 't1', label: 'Energetic Tone', type: 'tone', size: 15, group: 1 },
-          { id: 't2', label: 'Educational', type: 'tone', size: 15, group: 1 },
-          { id: 'tr1', label: 'ASMR Tingles', type: 'trigger', size: 12, group: 3 },
-          { id: 'tr2', label: 'Fast Cuts', type: 'trigger', size: 12, group: 2 },
-          { id: 'p1', label: 'Spring Launch', type: 'project', size: 22, group: 4 },
-          { id: 'p2', label: 'Revival Campaign', type: 'project', size: 22, group: 4 },
         ],
         links: [
-          { source: 'c1', target: 't1', score: 0.9 },
-          { source: 'c1', target: 't2', score: 0.7 },
-          { source: 'c3', target: 'tr1', score: 0.85 },
-          { source: 'c2', target: 't1', score: 0.8 },
-          { source: 'c2', target: 'tr2', score: 0.95 },
-          { source: 'p1', target: 'c3', score: 0.9 },
-          { source: 'p2', target: 'c3', score: 0.8 },
+          { source: 'c1', target: 'c2', score: 0.9 },
         ]
       });
     }
 
-    const tpuf = new Turbopuffer({
-      apiKey: tpufApiKey,
-      region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
-    });
+    const tpuf = new Turbopuffer({ apiKey: tpufKey, region });
+    let nodes: any[] = [];
+    let links: any[] = [];
 
-    // Strategy: Query Turbopuffer for the most significant concepts.
-    // If projectId is provided, query that namespace. If not, sample a broad set.
-    const namespaceName = (projectId as string) || "oumi_global_memory";
-    const ns = tpuf.namespace(namespaceName);
+    // Helper to query a namespace and map to nodes
+    const queryNamespace = async (nsName: string, k: number) => {
+      try {
+        const ns = tpuf.namespace(nsName);
+        const results = await ns.query({
+          rank_by: ["vector", "ANN", new Array(3072).fill(0)],
+          top_k: k,
+          include_attributes: ["text", "type", "score", "tags"],
+        });
+        return (results as any).rows || [];
+      } catch (err) {
+        console.warn(`[Memory Browse] Failed to query ${nsName}:`, (err as Error).message);
+        return [];
+      }
+    };
 
-    // Query for top concepts (using a dummy vector for global browse)
-    const searchResults = await ns.query({
-      rank_by: ["vector", "ANN", new Array(3072).fill(0)],
-      top_k: Number(limit),
-      include_attributes: ["text", "type", "score", "tags"],
-    });
+    if (projectId) {
+      // Specific Project View
+      const nsName = getNamespaceName(projectId as string);
+      const rows = await queryNamespace(nsName, Number(limit));
+      nodes = rows.map((r: any, idx: number) => ({
+        id: r.id || `${nsName}_${idx}`,
+        label: r.attributes?.text?.slice(0, 30) || "Concept",
+        fullText: r.attributes?.text,
+        type: r.attributes?.type || "concept",
+        size: 15 + (r.attributes?.score || 0) * 10,
+        group: r.attributes?.type === 'tone' ? 1 : 2
+      }));
+    } else {
+      // Global View: Discover & Aggregate
+      console.log("[Memory Browse] Global view requested. Discovering namespaces...");
+      
+      const nsList: string[] = [];
+      try {
+        // Fallback: Try the global namespace first if it exists
+        const globalRows = await queryNamespace("oumi_global_memory", 20);
+        if (globalRows.length > 0) {
+          nodes.push(...globalRows.map((r: any, idx: number) => ({
+            id: r.id || `global_${idx}`,
+            label: r.attributes?.text?.slice(0, 30) || "Global Concept",
+            type: r.attributes?.type || "global",
+            size: 20,
+            group: 0
+          })));
+        }
 
-    const rows = (searchResults as any).rows || [];
-    
-    // Map vectors to nodes
-    const nodes = rows.map((r: any, idx: number) => ({
-      id: r.id || `n_${idx}`,
-      label: r.attributes?.text?.slice(0, 30) || "Unknown Concept",
-      fullText: r.attributes?.text,
-      type: r.attributes?.type || "concept",
-      size: 15 + (r.attributes?.score || 0) * 10,
-      group: r.attributes?.type === 'tone' ? 1 : 2
-    }));
+        // Discovery: List all project namespaces
+        const namespacesResult = await tpuf.namespaces();
+        const namespaces = (namespacesResult as any).namespaces || namespacesResult || [];
+        const projectNamespaces = Array.isArray(namespaces) 
+          ? namespaces.filter(n => n.startsWith("project-"))
+          : [];
+        console.log(`[Memory Browse] Found ${projectNamespaces.length} project namespaces.`);
 
-    // Simple proximity links (mocking links based on shared tags or proximity in our context)
-    const links: any[] = [];
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        // If they share a type or are nearby in search results, link them
-        if (nodes[i].type === nodes[j].type || Math.abs(i - j) < 2) {
-          links.push({
-            source: nodes[i].id,
-            target: nodes[j].id,
-            score: 0.5 + Math.random() * 0.5
-          });
+        // Sample from each project (up to 5 projects to avoid overwhelming the graph)
+        for (const nsName of projectNamespaces.slice(0, 5)) {
+          const rows = await queryNamespace(nsName, 10);
+          nodes.push(...rows.map((r: any, idx: number) => ({
+            id: r.id || `${nsName}_${idx}`,
+            label: r.attributes?.text?.slice(0, 30) || "Concept",
+            type: r.attributes?.type || "concept",
+            size: 15,
+            group: projectNamespaces.indexOf(nsName) + 1,
+            projectName: nsName.replace('project-', '')
+          })));
+        }
+      } catch (listErr) {
+        console.error("[Memory Browse] Discovery failed:", listErr);
+      }
+    }
+
+    // Generate links based on proximity in the result set or shared types
+    if (nodes.length > 0) {
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < Math.min(i + 5, nodes.length); j++) {
+          if (nodes[i].type === nodes[j].type || (i % 3 === j % 3)) {
+            links.push({
+              source: nodes[i].id,
+              target: nodes[j].id,
+              score: 0.4 + Math.random() * 0.6
+            });
+          }
         }
       }
     }
@@ -939,13 +982,13 @@ app.get("/api/memory/browse", async (req, res) => {
     res.json({
       success: true,
       source: 'turbopuffer',
-      namespace: namespaceName,
       nodes,
-      links
+      links,
+      count: nodes.length
     });
 
   } catch (error) {
-    console.error("[Memory Browse] Error:", error);
+    console.error("[Memory Browse] Global Error:", error);
     res.status(500).json({ error: "Failed to browse creative memory", details: (error as Error).message });
   }
 });

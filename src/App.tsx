@@ -61,7 +61,6 @@ import {
   Compass,
   Globe,
   MessageSquare,
-  Waveform,
   ChevronRight,
   Lock,
   Shield,
@@ -2092,10 +2091,17 @@ const NeuralBrainGraph = ({ data, onSelectNode }: { data: { nodes: any[], links:
 
       // Label
       if (isHovered || true) {
-        ctx.font = `${isHovered ? 'bold' : 'normal'} 10px "Inter"`;
+        ctx.font = `${isHovered ? 'bold' : 'normal'} 9px "Inter"`;
         ctx.fillStyle = isHovered ? '#fff' : 'rgba(255,255,255,0.4)';
         ctx.textAlign = 'center';
-        ctx.fillText(n.label, n.x, n.y + n.size + 15);
+        const labelText = n.label.length > 20 ? n.label.slice(0, 17) + '...' : n.label;
+        ctx.fillText(labelText, n.x, n.y + n.size + 12);
+        
+        if (isHovered && n.projectName) {
+          ctx.font = 'italic 8px "Inter"';
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.fillText(n.projectName, n.x, n.y + n.size + 24);
+        }
       }
     });
   }, [nodes, hoveredNode, links]);
@@ -2160,27 +2166,35 @@ const MemoryPage = ({ currentProject, headers = {} }: { currentProject?: any, he
   }, [currentProject]);
 
   return (
-    <div className="flex flex-col h-full gap-8 p-10">
-      <div className="flex justify-between items-end">
-        <header className="space-y-2">
+    <div className="flex flex-col h-full gap-6 p-6 md:p-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <header className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">Turbopuffer Index</span>
-            <span className="text-on-surface-variant/40 text-[10px] font-bold uppercase tracking-widest">Global Memory</span>
+            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest bg-primary/10 text-primary border border-primary/20">
+              {currentProject ? 'Project Index' : 'Neural Discovery'}
+            </span>
+            <span className="text-on-surface-variant/40 text-[9px] font-bold uppercase tracking-widest">
+              {currentProject ? currentProject.projectName : 'Global Memory Vault'}
+            </span>
           </div>
-          <h2 className="text-4xl font-headline font-bold text-on-surface tracking-tight">Creative <span className="text-primary text-glow">Memory</span></h2>
-          <p className="text-on-surface-variant max-w-xl text-sm leading-relaxed">
-            Every brief, brand tone, and emotional hook is indexed into Oumi's high-dimensional vector space. Explore the semantic brain of your brand.
+          <h2 className="text-2xl md:text-3xl font-headline font-bold text-on-surface tracking-tight">
+            Creative <span className="text-primary text-glow">Memory</span>
+          </h2>
+          <p className="text-on-surface-variant max-w-xl text-[11px] leading-relaxed opacity-70">
+            {currentProject 
+              ? `Visualizing semantic relationships for ${currentProject.projectName}.` 
+              : "Discovering conceptual connections across all indexed brand assets."}
           </p>
         </header>
-        <div className="flex gap-4">
+        <div className="flex gap-4 bg-surface-container/20 p-3 rounded-2xl border border-outline/5">
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50">Indexed Concepts</p>
-            <p className="text-2xl font-bold text-primary">{loading ? '--' : memoryData.nodes.length * 124}</p>
+            <p className="text-[9px] uppercase tracking-widest font-bold text-on-surface-variant/50">Nodes</p>
+            <p className="text-lg font-bold text-primary">{loading ? '--' : memoryData.nodes.length}</p>
           </div>
-          <div className="w-[1px] h-10 bg-outline/10 mx-2" />
+          <div className="w-[1px] h-8 bg-outline/10 mx-1" />
           <div className="text-right">
-            <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50">Vector Proximity</p>
-            <p className="text-2xl font-bold text-on-surface">99.2%</p>
+            <p className="text-[9px] uppercase tracking-widest font-bold text-on-surface-variant/50">Connectivity</p>
+            <p className="text-lg font-bold text-on-surface">{memoryData.links.length > 0 ? 'High' : 'Low'}</p>
           </div>
         </div>
       </div>
@@ -2822,7 +2836,7 @@ export default function App() {
                     selectedBenchmarkIds={benchmarkingVariants.map(v => v.id)}
                   />
                 </motion.div>
-              ) : (
+              ) : activeView === 'memory' ? (
                 <motion.div 
                   key="memory"
                   initial={{ opacity: 0, y: 20 }}
