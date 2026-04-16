@@ -57,6 +57,7 @@ import {
 } from 'lucide-react';
 
 import { db } from './db';
+import WaveformVisualizer from './components/WaveformVisualizer';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -231,7 +232,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                   <AlertTriangle size={14} /> Key Weaknesses
                 </h4>
                 <div className="space-y-2">
-                  {insights.weaknesses.map((w, i) => (
+                  {insights.weaknesses?.map((w, i) => (
                     <div key={i} className="flex items-start gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
                       <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-0.5 shrink-0">W{i + 1}</span>
                       <p className="text-xs text-on-surface/80 leading-relaxed">{w}</p>
@@ -267,7 +268,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                     <Award size={14} /> Variant Ranking
                   </h4>
                   <div className="space-y-2">
-                    {insights.variant_ranking.sort((a, b) => a.rank - b.rank).map((v) => (
+                    {insights.variant_ranking?.slice().sort((a: any, b: any) => b.score - a.score).map((v: any) => (
                       <div key={v.name} className="flex items-center gap-4 p-3 bg-surface-container/30 border border-outline/10 rounded-xl">
                         <span className={`text-sm font-headline font-extrabold ${v.rank === 1 ? 'text-tertiary' : v.rank === 2 ? 'text-secondary' : 'text-on-surface-variant'}`}>
                           #{v.rank}
@@ -292,7 +293,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
               <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary flex items-center gap-2 mb-2">
                 <Crosshair size={14} /> Optimization Actions
               </h4>
-              {insights.actions.map((a, i) => (
+              {insights.actions?.map((a, i) => (
                 <div key={i} className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/10 rounded-xl group hover:border-primary/30 transition-colors">
                   <div className="w-7 h-7 shrink-0 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-headline font-bold text-xs">
                     {i + 1}
@@ -330,7 +331,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
               <h4 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant flex items-center gap-2 mb-2">
                 <Database size={14} /> Raw TRIBE v2 Output
               </h4>
-              {insights._raw.map((raw, i) => (
+              {insights._raw?.map((raw, i) => (
                 <div key={i} className="bg-black/30 border border-outline/10 rounded-xl p-4">
                   <p className="text-[10px] text-primary uppercase tracking-widest font-bold mb-3">{raw.variantName}</p>
                   <pre className="text-[11px] text-on-surface-variant/80 whitespace-pre-wrap leading-relaxed font-mono overflow-auto max-h-60 custom-scrollbar">
@@ -409,7 +410,7 @@ const Sidebar = ({
     <div className="mt-10 flex-1 overflow-y-auto custom-scrollbar pr-2">
       <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant/50 px-4 mb-4">Recent Projects</h3>
       <div className="space-y-1">
-        {projects.map((p) => (
+        {projects?.map((p) => (
           <button
             key={p.projectId}
             onClick={() => {
@@ -516,7 +517,7 @@ const Hero = () => {
       </AnimatePresence>
       
       <div className="absolute bottom-6 left-12 flex gap-2 z-20">
-        {slides.map((_, idx) => (
+        {slides?.map((_, idx) => (
           <button
             key={idx}
             onClick={() => setCurrentSlide(idx)}
@@ -569,29 +570,15 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const { showToast } = useToast();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handlePlayToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!audioRef.current) return;
-
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+    setIsPlaying(!isPlaying);
+    if (!isPlaying) {
       showToast(`Playing ${variant.name}...`);
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-    };
-  }, []);
 
   return (
     <div className={`p-6 rounded-2xl flex flex-col gap-5 transition-all duration-300 border ${isSelected ? 'bg-primary/5 border-primary/30 shadow-[0_0_30px_rgba(var(--color-primary),0.15)]' : 'bg-surface-container-low/20 border-outline/10 hover:border-primary/30 hover:bg-surface-bright/40'}`}>
@@ -654,24 +641,17 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
       </div>
 
       <div className="h-12 w-full bg-black/20 rounded-lg flex items-center px-4 relative overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
-        <div className="flex items-end gap-[3px] h-6 w-full">
-           {[40, 70, 90, 50, 100, 60, 40, 80, 95, 50].map((h, i) => (
-             <div key={i} className={`flex-1 ${variant.bgType} ${h < 80 ? '/40' : ''} rounded-full transition-all duration-500 hover:h-full`} style={{ height: `${h}%` }}></div>
-           ))}
-        </div>
+        <WaveformVisualizer 
+          audioUrl={variant.audioUrl} 
+          isPlaying={isPlaying} 
+          onPlayPause={setIsPlaying}
+          color={isPlaying ? '#4f46e5' : '#4f46e5'} // Assuming primary is indigo-600
+          height={40}
+        />
       </div>
       
       <div className="flex justify-between items-center">
         <div className="relative group flex items-center justify-center">
-          <audio 
-            ref={audioRef} 
-            src={variant.audioUrl} 
-            onEnded={() => setIsPlaying(false)}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            className="hidden" 
-          />
           <button onClick={handlePlayToggle} className="flex items-center gap-2 text-[11px] font-bold text-on-surface bg-white/5 py-2 px-5 rounded-lg border border-outline/10 hover:bg-white/10 transition-all uppercase tracking-widest">
             {isPlaying ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             {isPlaying ? 'Stop' : 'Preview'}
@@ -1033,7 +1013,7 @@ const MemoryCategory = ({ title, tags, color, bg, border }: { title: string, tag
   <div className={`p-4 rounded-2xl border ${border} ${bg} flex flex-col justify-between`}>
     <h4 className={`text-[9px] uppercase tracking-widest font-bold mb-3 ${color}`}>{title}</h4>
     <div className="flex flex-wrap gap-1.5">
-      {tags.map(t => (
+      {tags?.map(t => (
         <span key={t} className="text-[10px] bg-black/20 px-2 py-1 rounded-md text-on-surface/80 border border-white/5">{t}</span>
       ))}
     </div>
@@ -1212,7 +1192,7 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
             {/* Uploaded Files List */}
             {uploadedFiles.length > 0 && (
               <div className="space-y-2 mt-4">
-                {uploadedFiles.map((file, idx) => (
+                {uploadedFiles?.map((file, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-surface-container/40 border border-outline/10 rounded-xl p-3">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-primary/10 text-primary rounded-lg overflow-hidden flex items-center justify-center">
@@ -1424,8 +1404,8 @@ export default function App() {
       }
       
       const { variants: newVariants } = await response.json();
-      
-      const processedVariants = newVariants.map((v: any) => ({
+      const newVariantsArray = Array.isArray(newVariants) ? newVariants : [];
+      const processedVariants = newVariantsArray.map((v: any) => ({
         ...v,
         name: v.name || 'AI Variant',
         type: 'AI Generated',
