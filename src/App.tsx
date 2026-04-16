@@ -245,10 +245,10 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl overflow-hidden"
+      className="bg-surface-container-low/20 border border-outline/10 rounded-2xl flex flex-col overflow-hidden max-h-full"
     >
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-outline/10 bg-surface-container-low/40">
+      {/* Header - Fixed */}
+      <div className="px-6 py-4 border-b border-outline/10 bg-surface-container-low/40 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-primary/10 p-2 rounded-xl text-primary">
@@ -268,7 +268,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
       </div>
 
       {/* Navigation Tabs - Refactored to Wrap for Sidebar */}
-      <div className="flex flex-wrap gap-2 px-4 py-3 bg-surface-container-low/20 border-b border-outline/10">
+      <div className="flex flex-wrap gap-2 px-4 py-3 bg-surface-container-low/20 border-b border-outline/10 shrink-0">
         {[
           { key: 'overview' as const, label: 'Score', icon: <BarChart3 size={12} /> },
           { key: 'actions' as const, label: 'Actions', icon: <Lightbulb size={12} /> },
@@ -289,8 +289,8 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
         ))}
       </div>
 
-      {/* Content Area */}
-      <div className="p-6">
+      {/* Content Area - Scrollable */}
+      <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
         <AnimatePresence mode="wait">
           {activeTab === 'overview' && (
             <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
@@ -1252,9 +1252,9 @@ const ActiveVariants = ({ variants, setVariants, onAnalyzeVariant, analyzingVari
 };
 const AnalyticsPanel = ({ className = "", onClose, neuralInsights, isNeuralLoading }: { className?: string, onClose?: () => void, neuralInsights: NeuralInsights | null, isNeuralLoading: boolean }) => {
   return (
-  <aside className={`overflow-y-auto custom-scrollbar glass-panel flex flex-col gap-12 ${className}`}>
+  <aside className={`h-full sticky top-0 flex flex-col gap-8 glass-panel border-l border-outline/10 ${className}`}>
     {onClose && (
-      <div className="flex justify-end xl:hidden mb-[-2rem]">
+      <div className="flex justify-end xl:hidden p-4">
         <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface p-2">
           <X size={24} />
         </button>
@@ -1262,9 +1262,10 @@ const AnalyticsPanel = ({ className = "", onClose, neuralInsights, isNeuralLoadi
     )}
 
     {/* Neural Insights — or empty state */}
-    {(neuralInsights || isNeuralLoading) ? (
-      <NeuralInsightsPanel insights={neuralInsights} isLoading={isNeuralLoading} />
-    ) : (
+    <div className="flex-1 overflow-hidden">
+      {(neuralInsights || isNeuralLoading) ? (
+        <NeuralInsightsPanel insights={neuralInsights} isLoading={isNeuralLoading} />
+      ) : (
       <section className="flex flex-col items-center text-center py-8 px-4">
         <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
           <Brain className="text-primary/60" size={26} />
@@ -1275,8 +1276,7 @@ const AnalyticsPanel = ({ className = "", onClose, neuralInsights, isNeuralLoadi
         </p>
       </section>
     )}
-
-    {/* Brain Simulation removed */}
+    </div>
   </aside>
   );
 };
@@ -2817,7 +2817,7 @@ export default function App() {
         {/* Desktop Analytics Panel (Dashboard View Only) */}
         {activeView === 'dashboard' && (
           <AnalyticsPanel 
-            className="hidden xl:flex w-96 border-l border-outline/10 p-10 overflow-y-auto" 
+            className="hidden xl:flex w-96 p-6" 
             neuralInsights={neuralInsights} 
             isNeuralLoading={isNeuralLoading} 
             onClose={() => setNeuralInsights(null)} 
