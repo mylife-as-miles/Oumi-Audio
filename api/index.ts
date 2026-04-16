@@ -624,40 +624,27 @@ app.post("/api/generate-music", async (req, res) => {
     for (let i = 0; i < Math.min(musicPrompts.length, count); i++) {
       try {
         const finalPrompt = musicPrompts[i];
-        console.log(`[Music Generation] Composing variant ${i + 1}/${count} with model eleven_music_v1: ${finalPrompt}`);
+        console.log(`[Music Generation] Composing variant ${i + 1}/${count} via REST API: ${finalPrompt}`);
         
-        const audioStream = await elevenlabs.music.compose({
-          model_id: "eleven_music_v1",
-          prompt: finalPrompt,
-          musicLengthMs: 15000, // 15 seconds
+        const response = await fetch("https://api.elevenlabs.io/v1/music", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "xi-api-key": process.env.ELEVENLABS_API_KEY as string,
+          },
+          body: JSON.stringify({
+            prompt: finalPrompt,
+            model_id: "music_v1",
+            music_length_ms: 15000, // 15 seconds
+          }),
         });
 
-        if (!audioStream) {
-          throw new Error("ElevenLabs returned an empty stream.");
+        if (!response.ok) {
+          const errorBody = await response.text();
+          throw new Error(`ElevenLabs API returned ${response.status}: ${errorBody}`);
         }
 
-        const chunks = [];
-        // Handle both Node.js streams and potential Web Streams
-        if (typeof (audioStream as any)[Symbol.asyncIterator] === 'function') {
-          for await (const chunk of audioStream as any) {
-            chunks.push(chunk);
-          }
-        } else if ((audioStream as any).getReader) {
-          const reader = (audioStream as any).getReader();
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-          }
-        } else {
-          throw new Error("Unsupported stream format from ElevenLabs SDK.");
-        }
-
-        if (chunks.length === 0) {
-          throw new Error("No audio chunks received from stream.");
-        }
-
-        const audioBuffer = Buffer.concat(chunks);
+        const audioBuffer = Buffer.from(await response.arrayBuffer());
         const base64Audio = audioBuffer.toString("base64");
 
         variants.push({
@@ -671,7 +658,7 @@ app.post("/api/generate-music", async (req, res) => {
           timeAgo: 'Just now'
         });
         
-        console.log(`[Music Generation] Variant ${i + 1} complete (Size: ${audioBuffer.length} bytes).`);
+        console.log(`[Music Generation] Variant ${i + 1} complete (${audioBuffer.length} bytes).`);
       } catch (varError) {
         const msg = (varError as any).message || String(varError);
         console.error(`[Music Generation] Failed to generate variant ${i}:`, msg);
