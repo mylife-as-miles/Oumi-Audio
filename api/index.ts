@@ -15,6 +15,25 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// ─── AI Client Initializer ─────────────────────────────────────────────
+
+function getAIClient() {
+  if (process.env.GCP_PROJECT_ID && process.env.GCP_PROJECT_ID !== 'your-project-id') {
+    // Vertex AI / ADC Mode
+    return new GoogleGenAI({ 
+      vertexai: true,
+      project: process.env.GCP_PROJECT_ID,
+      location: process.env.GCP_LOCATION || 'us-central1'
+    });
+  } else if (process.env.GEMINI_API_KEY) {
+    // Standard AI Mode
+    return new GoogleGenAI({ 
+      apiKey: process.env.GEMINI_API_KEY 
+    });
+  }
+  return null;
+}
+
 // ─── TRIBE v2 Intelligence Engine System Prompt ─────────────────────────────
 
 const INTELLIGENCE_ENGINE_PROMPT = `You are the Oumi Audio Intelligence Engine.
@@ -91,12 +110,10 @@ async function interpretWithGemini(
   tribeOutputs: { script: string; markdown: string; variantName: string }[],
   projectGoal?: string
 ): Promise<any> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY not configured");
+  const ai = getAIClient();
+  if (!ai) {
+    throw new Error("Gemini AI not configured (missing GEMINI_API_KEY or GCP_PROJECT_ID)");
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   const variantSections = tribeOutputs
     .map(
@@ -159,10 +176,7 @@ app.post("/api/generate-variants", async (req, res) => {
   try {
     const { projectId, goal } = req.body;
 
-    let ai: GoogleGenAI | null = null;
-    if (process.env.GEMINI_API_KEY) {
-      ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    }
+    const ai = getAIClient();
 
     let script = "Experience the ultimate hydration with our new premium skincare line. Because your skin deserves the best.";
     let title = "Premium Ad";
@@ -250,17 +264,9 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
       region: process.env.TURBOPUFFER_REGION || "gcp-us-central1",
     });
 
-    let ai: GoogleGenAI | null = null;
-    if (process.env.GEMINI_API_KEY) {
-      // Per user request: use default project/location from ADC
-      ai = new GoogleGenAI({ 
-        apiKey: process.env.GEMINI_API_KEY,
-        vertexai: true,
-        project: process.env.GCP_PROJECT_ID || 'default',
-        location: process.env.GCP_LOCATION || 'us-central1'
-      });
-    } else {
-      console.warn("[Ingestion] GEMINI_API_KEY missing. Embeddings will use fallback random vectors.");
+    const ai = getAIClient();
+    if (!ai) {
+      console.warn("[Ingestion] AI client not configured. Embeddings will use fallback random vectors.");
     }
 
     const extractedChunks: { text: string; source: string }[] = [];
@@ -288,7 +294,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
           }
           console.log(`[Ingestion] Transcribing audio: ${file.originalname}`);
           try {
-            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = ai.getGenerativeModel({ model: "gemini-3.0-flash" });
             const result = await model.generateContent([
               "Please provide a high-accuracy, verbatim transcription of this audio file for creative context indexing. If there are multiple speakers, identify them if possible.",
               {
@@ -316,8 +322,34 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
             }
           });
           continue; // Image chunks are added directly, no need for split logic
+        } else if (lowName.endsWith(".txt")) {
+          console.log(`[Ingestion] Parsing text file: ${file.originalname}`);
+          text = file.buffer.toString("utf-8");
+        } else if (lowName.endsWith(".mp4") || lowName.endsWith(".mov") || lowName.endsWith(".webm")) {
+          if (!ai) {
+            console.warn(`[Ingestion] Skipping video ${file.originalname} because GEMINI_API_KEY is not set.`);
+            continue;
+          }
+          console.log(`[Ingestion] Analyzing video: ${file.originalname}`);
+          try {
+            const model = ai.getGenerativeModel({ model: "gemini-3.0-flash" });
+            const result = await model.generateContent([
+              "Please provide a comprehensive multimodal description of this video for creative context indexing. Include visual details (lighting, composition, movement) and audio details (speech, music, ambient sound).",
+              {
+                inlineData: {
+                  data: file.buffer.toString("base64"),
+                  mimeType: file.mimetype || "video/mp4",
+                },
+              },
+            ]);
+            text = result.response.text();
+            console.log(`[Ingestion] Video analysis complete for ${file.originalname} (${text.length} chars)`);
+          } catch (videoError) {
+            console.error(`[Ingestion] Gemini video analysis failed for ${file.originalname}:`, videoError);
+            throw new Error(`Video analysis failed for ${file.originalname}.`);
+          }
         } else {
-          // Default to text parsing for .txt, .docx, or unknown files
+          // Default to text parsing for unknown files (e.g. fallback for .docx or others)
           text = file.buffer.toString("utf-8");
         }
 
@@ -556,10 +588,11 @@ app.post("/api/generate-music", async (req, res) => {
     // Step 1: Brainstorm specific musical prompts using Gemini
     let musicPrompts = [userPrompt];
     
+    const ai = getAIClient();
     if (ai) {
       console.log(`[Music Generation] Brainstorming ${count} musical directions...`);
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = ai.getGenerativeModel({ model: "gemini-3.0-flash" });
         const brainPrompt = `Brainstorm ${count} distinct musical prompts for ElevenLabs Music API based on:
         Base Goal: "${userPrompt}"
         Project Context: """${projectContext.slice(0, 2000)}"""

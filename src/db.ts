@@ -47,7 +47,7 @@ export class OumiDatabase extends Dexie {
   constructor() {
     super('OumiDatabase');
     this.version(2).stores({
-      projects: '++id, projectId, projectName',
+      projects: '++id, projectId, projectName, lastModified',
       files: '++id, projectId, name',
       variants: '++id, projectId, variantId'
     });

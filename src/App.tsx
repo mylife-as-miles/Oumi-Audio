@@ -53,6 +53,7 @@ import {
   Eye,
   ArrowRight,
   Crown,
+  Video,
 } from 'lucide-react';
 
 import { db } from './db';
@@ -1189,11 +1190,11 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
                 <UploadCloud size={24} />
               </div>
               <p className="text-sm font-medium text-on-surface mb-1">Drag and drop files here</p>
-              <p className="text-xs text-on-surface-variant mb-4">PDF, Audio, or Images (JPG, PNG, WEBP) up to 50MB</p>
+              <p className="text-xs text-on-surface-variant mb-4">PDF, Audio, Images, Text, or Video up to 50MB</p>
               <input 
                 type="file" 
                 multiple 
-                accept=".pdf,.mp3,.wav,.m4a,.jpg,.jpeg,.png,.webp"
+                accept=".pdf,.mp3,.wav,.m4a,.jpg,.jpeg,.png,.webp,.txt,.mp4,.mov,.webm"
                 className="hidden" 
                 ref={fileInputRef} 
                 onChange={handleFileSelect} 
@@ -1215,7 +1216,9 @@ const NewProjectModal = ({ isOpen, onClose, onCreate }: { isOpen: boolean, onClo
                       <div className="p-2 bg-primary/10 text-primary rounded-lg overflow-hidden flex items-center justify-center">
                         {file.name.match(/\.(jpg|jpeg|png|webp)$/i) ? (
                           <Eye size={16} />
-                        ) : file.name.endsWith('.pdf') ? (
+                        ) : file.name.match(/\.(mp4|mov|webm)$/i) ? (
+                          <Video size={16} />
+                        ) : file.name.endsWith('.pdf') || file.name.endsWith('.txt') ? (
                           <FileText size={16} />
                         ) : (
                           <FileAudio size={16} />
