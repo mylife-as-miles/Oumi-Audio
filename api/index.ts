@@ -269,7 +269,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
       console.warn("[Ingestion] AI client not configured. Embeddings will use fallback random vectors.");
     }
 
-    const extractedChunks: { text: string; source: string }[] = [];
+    const extractedChunks: { text: string; source: string; image?: { data: string; mimeType: string } }[] = [];
 
     for (const file of files) {
       console.log(`[Ingestion] Processing file: ${file.originalname} (${file.size} bytes)`);
@@ -294,17 +294,19 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
           }
           console.log(`[Ingestion] Transcribing audio: ${file.originalname}`);
           try {
-            const model = ai.getGenerativeModel({ model: "gemini-3.0-flash" });
-            const result = await model.generateContent([
-              "Please provide a high-accuracy, verbatim transcription of this audio file for creative context indexing. If there are multiple speakers, identify them if possible.",
-              {
-                inlineData: {
-                  data: file.buffer.toString("base64"),
-                  mimeType: file.mimetype || "audio/mpeg",
+            const result = await ai.models.generateContent({
+              model: "gemini-3.0-flash",
+              contents: [
+                { text: "Please provide a high-accuracy, verbatim transcription of this audio file for creative context indexing. If there are multiple speakers, identify them if possible." },
+                {
+                  inlineData: {
+                    data: file.buffer.toString("base64"),
+                    mimeType: file.mimetype || "audio/mpeg",
+                  },
                 },
-              },
-            ]);
-            text = result.response.text();
+              ],
+            });
+            text = result.text || "";
             console.log(`[Ingestion] Transcription complete for ${file.originalname} (${text.length} chars)`);
           } catch (audioError) {
             console.error(`[Ingestion] Gemini transcription failed for ${file.originalname}:`, audioError);
@@ -332,17 +334,19 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
           }
           console.log(`[Ingestion] Analyzing video: ${file.originalname}`);
           try {
-            const model = ai.getGenerativeModel({ model: "gemini-3.0-flash" });
-            const result = await model.generateContent([
-              "Please provide a comprehensive multimodal description of this video for creative context indexing. Include visual details (lighting, composition, movement) and audio details (speech, music, ambient sound).",
-              {
-                inlineData: {
-                  data: file.buffer.toString("base64"),
-                  mimeType: file.mimetype || "video/mp4",
+            const result = await ai.models.generateContent({
+              model: "gemini-3.0-flash",
+              contents: [
+                { text: "Please provide a comprehensive multimodal description of this video for creative context indexing. Include visual details (lighting, composition, movement) and audio details (speech, music, ambient sound)." },
+                {
+                  inlineData: {
+                    data: file.buffer.toString("base64"),
+                    mimeType: file.mimetype || "video/mp4",
+                  },
                 },
-              },
-            ]);
-            text = result.response.text();
+              ],
+            });
+            text = result.text || "";
             console.log(`[Ingestion] Video analysis complete for ${file.originalname} (${text.length} chars)`);
           } catch (videoError) {
             console.error(`[Ingestion] Gemini video analysis failed for ${file.originalname}:`, videoError);
@@ -373,7 +377,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
     // Per user request: Clear the namespace before re-indexing
     try {
       console.log(`[Ingestion] Clearing namespace project-${projectId}...`);
-      await ns.delete_all();
+      await ns.deleteAll();
     } catch (clearError) {
       console.warn(`[Ingestion] Could not clear namespace:`, clearError);
     }
@@ -398,8 +402,8 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
           }
 
           const embedding = await ai.models.embedContent({
-            model: "gemini-embedding-2-preview",
-            contents: contents,
+            model: "text-embedding-004", // Use canonical embedding model
+            contents: contents.map(c => typeof c === 'string' ? { text: c } : c),
           });
           
           if (embedding.embeddings && embedding.embeddings.length > 0) {
@@ -523,7 +527,7 @@ app.post("/api/analyze-audio-neural", upload.single("audio"), async (req, res) =
     const client = await Client.connect("Reino0ne/tribev2", connectOptions as any);
 
     // Upload the audio file
-    const audioBlob = new Blob([file.buffer], { type: file.mimetype });
+    const audioBlob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
     await client.predict("/process_audio_upload", {
       f: audioBlob,
     });
@@ -574,12 +578,12 @@ app.post("/api/generate-music", async (req, res) => {
         });
         const ns = tpuf.namespace(projectId);
         const searchResults = await ns.query({
-          query: userPrompt,
+          rank_by: ["vector", "ANN", new Array(3072).fill(0)],
           top_k: 5,
           include_attributes: ["text"],
         });
-        projectContext = searchResults.map(r => r.attributes?.text).filter(Boolean).join("\n\n");
-        console.log(`[Music Generation] Found ${searchResults.length} context snippets.`);
+        projectContext = (searchResults as any).rows?.map((r: any) => r.attributes?.text).filter(Boolean).join("\n\n") || "";
+        console.log(`[Music Generation] Found ${(searchResults as any).rows?.length || 0} context snippets.`);
       } catch (contextError) {
         console.warn(`[Music Generation] Context fetch failed:`, contextError);
       }
@@ -592,7 +596,6 @@ app.post("/api/generate-music", async (req, res) => {
     if (ai) {
       console.log(`[Music Generation] Brainstorming ${count} musical directions...`);
       try {
-        const model = ai.getGenerativeModel({ model: "gemini-3.0-flash" });
         const brainPrompt = `Brainstorm ${count} distinct musical prompts for ElevenLabs Music API based on:
         Base Goal: "${userPrompt}"
         Project Context: """${projectContext.slice(0, 2000)}"""
@@ -600,8 +603,11 @@ app.post("/api/generate-music", async (req, res) => {
         Make them detailed (style, mood, instruments, tempo). 
         Return ONLY a JSON array of strings.`;
         
-        const result = await model.generateContent(brainPrompt);
-        const text = result.response.text();
+        const result = await ai.models.generateContent({
+          model: "gemini-3.0-flash",
+          contents: brainPrompt,
+        });
+        const text = result.text || "";
         const cleanedText = text.replace(/```json|```/g, "").trim();
         musicPrompts = JSON.parse(cleanedText);
         console.log(`[Music Generation] Brainstormed prompts:`, musicPrompts);

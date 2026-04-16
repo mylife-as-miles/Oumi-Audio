@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   FolderOpen,
@@ -567,6 +567,8 @@ const VariantCard = ({ variant, rank, isSelected, onToggleSelect, onDelete, onAn
   const [isExpanded, setIsExpanded] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const { showToast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handlePlayToggle = (e: React.MouseEvent) => {
