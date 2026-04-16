@@ -94,12 +94,42 @@ const useToast = () => React.useContext(ToastContext);
 
 // ─── Quality Badge Colors ───────────────────────────────────────────────────
 
-const qualityConfig: Record<string, { color: string; bg: string; border: string; glow: string }> = {
-  Elite: { color: 'text-tertiary', bg: 'bg-tertiary/10', border: 'border-tertiary/30', glow: 'shadow-[0_0_20px_rgba(183,254,77,0.2)]' },
-  Strong: { color: 'text-green-400', bg: 'bg-green-400/10', border: 'border-green-400/30', glow: 'shadow-[0_0_20px_rgba(74,222,128,0.15)]' },
-  Good: { color: 'text-secondary', bg: 'bg-secondary/10', border: 'border-secondary/30', glow: 'shadow-[0_0_20px_rgba(105,156,255,0.15)]' },
-  Average: { color: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', glow: '' },
-  Bad: { color: 'text-red-400', bg: 'bg-red-400/10', border: 'border-red-400/30', glow: '' },
+const qualityConfig: Record<string, { color: string; bg: string; border: string; glow: string; icon: React.ReactNode }> = {
+  Elite: { 
+    color: 'text-tertiary', 
+    bg: 'bg-tertiary/10', 
+    border: 'border-tertiary/30', 
+    glow: 'shadow-[0_0_40px_rgba(183,254,77,0.3)]',
+    icon: <Crown size={24} />
+  },
+  Strong: { 
+    color: 'text-green-400', 
+    bg: 'bg-green-400/10', 
+    border: 'border-green-400/30', 
+    glow: 'shadow-[0_0_30px_rgba(74,222,128,0.2)]',
+    icon: <BadgeCheck size={24} />
+  },
+  Good: { 
+    color: 'text-secondary', 
+    bg: 'bg-secondary/10', 
+    border: 'border-secondary/30', 
+    glow: 'shadow-[0_0_30px_rgba(105,156,255,0.2)]',
+    icon: <Activity size={24} />
+  },
+  Average: { 
+    color: 'text-yellow-400', 
+    bg: 'bg-yellow-400/10', 
+    border: 'border-yellow-400/30', 
+    glow: 'shadow-[0_0_20px_rgba(250,204,21,0.15)]',
+    icon: <Info size={24} />
+  },
+  Bad: { 
+    color: 'text-red-400', 
+    bg: 'bg-red-400/10', 
+    border: 'border-red-400/30', 
+    glow: 'shadow-[0_0_30px_rgba(248,113,113,0.25)]',
+    icon: <AlertTriangle size={24} />
+  },
 };
 
 const signalIcons: Record<string, React.ReactNode> = {
@@ -159,7 +189,16 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
 
   if (!insights) return null;
 
+  const isSimulated = insights._raw?.some(r => r.tribeMarkdown?.toLowerCase().includes('failed') || r.tribeMarkdown?.toLowerCase().includes('timeout'));
   const qConfig = qualityConfig[insights.summary?.quality || 'Average'] || qualityConfig.Average;
+
+  const diagnosisFallback = {
+    Elite: "Neural benchmarks indicate industry-leading engagement potential across all markers.",
+    Strong: "Content shows strong alignment with neuro-retention patterns and emotional cues.",
+    Good: "Performance markers are above average with minor hook optimization recommended.",
+    Average: "Baseline engagement detected. Substantial friction noted in cognitive load metrics.",
+    Bad: "Critical friction detected. High cognitive load and low emotional connectivity benchmarks."
+  }[insights.summary?.quality || 'Average'] || "Processing neural diagnostic...";
 
   return (
     <motion.div
@@ -187,15 +226,25 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
         </div>
 
         {/* Quality Badge */}
-        <div className={`flex items-center justify-between p-4 rounded-xl border ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
+        <div className={`flex items-center justify-between p-4 rounded-xl border transition-all duration-700 ${qConfig.border} ${qConfig.bg} ${qConfig.glow}`}>
           <div className="flex items-center gap-3">
             <div className={`text-2xl font-headline font-extrabold ${qConfig.color}`}>
               {insights.summary?.quality || 'Analyzing'}
             </div>
             <div className="w-px h-8 bg-outline/20" />
-            <p className="text-xs text-on-surface/80 max-w-sm leading-relaxed">{insights.summary?.diagnosis || 'Processing neural diagnostic...'}</p>
+            <div className="flex flex-col">
+              {isSimulated && (
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                  <span className="text-[8px] uppercase tracking-widest font-bold text-yellow-400/80">Neural Bypass Active (AI Simulated)</span>
+                </div>
+              )}
+              <p className="text-xs text-on-surface/80 max-w-sm leading-relaxed">
+                {insights.summary?.diagnosis || diagnosisFallback}
+              </p>
+            </div>
           </div>
-          <ShieldCheck size={24} className={qConfig.color} />
+          <div className={qConfig.color}>{qConfig.icon}</div>
         </div>
       </div>
 
@@ -233,10 +282,16 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                 </h4>
                 <div className="space-y-2">
                   {insights.weaknesses?.map((w, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }} 
+                      animate={{ opacity: 1, x: 0 }} 
+                      transition={{ delay: i * 0.1 }}
+                      key={i} 
+                      className="flex items-start gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl hover:bg-red-500/10 transition-colors"
+                    >
                       <span className="text-[9px] font-bold text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded mt-0.5 shrink-0">W{i + 1}</span>
                       <p className="text-xs text-on-surface/80 leading-relaxed">{w}</p>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
@@ -294,7 +349,13 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                 <Crosshair size={14} /> Optimization Actions
               </h4>
               {insights.actions?.map((a, i) => (
-                <div key={i} className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/10 rounded-xl group hover:border-primary/30 transition-colors">
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }} 
+                  animate={{ opacity: 1, y: 0 }} 
+                  transition={{ delay: i * 0.1 }}
+                  key={i} 
+                  className="flex items-start gap-3 p-4 bg-primary/5 border border-primary/10 rounded-xl group hover:border-primary/30 transition-colors"
+                >
                   <div className="w-7 h-7 shrink-0 bg-primary/10 rounded-lg flex items-center justify-center text-primary font-headline font-bold text-xs">
                     {i + 1}
                   </div>
@@ -302,7 +363,7 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                     <p className="text-xs text-on-surface leading-relaxed">{a}</p>
                   </div>
                   <ArrowRight size={14} className="text-on-surface-variant/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
-                </div>
+                </motion.div>
               ))}
             </motion.div>
           )}
@@ -332,12 +393,23 @@ const NeuralInsightsPanel = ({ insights, isLoading, onClose }: { insights: Neura
                 <Database size={14} /> Raw TRIBE v2 Output
               </h4>
               {insights._raw?.map((raw, i) => (
-                <div key={i} className="bg-black/30 border border-outline/10 rounded-xl p-4">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.98 }} 
+                  animate={{ opacity: 1, scale: 1 }} 
+                  transition={{ delay: i * 0.1 }}
+                  key={i} 
+                  className="bg-black/30 border border-outline/10 rounded-xl p-4 overflow-hidden relative"
+                >
+                  {raw.tribeMarkdown?.toLowerCase().includes('failed') && (
+                    <div className="absolute top-4 right-4 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-[8px] uppercase tracking-widest font-bold text-red-400">
+                      Connection Failed
+                    </div>
+                  )}
                   <p className="text-[10px] text-primary uppercase tracking-widest font-bold mb-3">{raw.variantName}</p>
-                  <pre className="text-[11px] text-on-surface-variant/80 whitespace-pre-wrap leading-relaxed font-mono overflow-auto max-h-60 custom-scrollbar">
+                  <pre className="text-[11px] text-on-surface-variant/80 whitespace-pre-wrap leading-relaxed font-mono overflow-auto max-h-60 custom-scrollbar bg-black/20 p-3 rounded-lg border border-outline/5">
                     {raw.tribeMarkdown}
                   </pre>
-                </div>
+                </motion.div>
               ))}
             </motion.div>
           )}
@@ -363,7 +435,7 @@ const Sidebar = ({
   onNewProject?: () => void,
   projects?: any[],
   onSelectProject?: (project: any) => void,
-  onDeleteProject?: (id: string) => void,
+  onDeleteProject?: (project: any) => void,
   currentProjectId?: string
 }) => {
   const { showToast } = useToast();
@@ -428,8 +500,8 @@ const Sidebar = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (onDeleteProject && window.confirm(`Delete project "${p.projectName}" and all its data?`)) {
-                  onDeleteProject(p.projectId);
+                if (onDeleteProject) {
+                  onDeleteProject(p);
                 }
               }}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 opacity-0 group-hover:opacity-100 text-on-surface-variant/40 hover:text-error transition-all"
@@ -1609,7 +1681,10 @@ export default function App() {
         onNewProject={() => setIsNewProjectModalOpen(true)} 
         projects={projectsList}
         onSelectProject={setCurrentProject}
-        onDeleteProject={handleDeleteProject}
+        onDeleteProject={(p) => {
+          setProjectToDelete(p);
+          setIsDeleteModalOpen(true);
+        }}
         currentProjectId={currentProject?.projectId}
         className="hidden lg:flex fixed left-0 top-0 h-full w-60 border-r border-outline/10" 
       />
@@ -1631,6 +1706,10 @@ export default function App() {
                 onNewProject={() => setIsNewProjectModalOpen(true)} 
                 projects={projectsList}
                 onSelectProject={setCurrentProject}
+                onDeleteProject={(p) => {
+                  setProjectToDelete(p);
+                  setIsDeleteModalOpen(true);
+                }}
                 currentProjectId={currentProject?.projectId}
                 className="h-full w-full border-none" 
                 onClose={() => setIsLeftMenuOpen(false)} 
