@@ -570,7 +570,7 @@ app.post("/api/projects/ingest", upload.array("files"), async (req, res) => {
     const rows = [];
     for (let i = 0; i < extractedChunks.length; i++) {
       const chunk = extractedChunks[i];
-      let vector = new Array(3072).fill(0).map(() => Math.random()); // 3072d fallback
+      let vector = new Array(768).fill(0).map(() => Math.random()); // 768d fallback to match Gemini 004
       
       if (ai) {
         try {
@@ -907,8 +907,9 @@ app.get("/api/memory/browse", async (req, res) => {
     const queryNamespace = async (nsName: string, k: number) => {
       try {
         const ns = tpuf.namespace(nsName);
+        // text-embedding-004 uses 768 dimensions. Using a zero-vector for discovery-style query.
         const results = await ns.query({
-          rank_by: ["vector", "ANN", new Array(3072).fill(0)],
+          rank_by: ["vector", "ANN", new Array(768).fill(0)],
           top_k: k,
           include_attributes: ["text", "type", "score", "tags"],
         });
@@ -951,14 +952,20 @@ app.get("/api/memory/browse", async (req, res) => {
 
         // Discovery: List all project namespaces
         const namespacesResult = await tpuf.namespaces();
-        const namespaces = (namespacesResult as any).namespaces || namespacesResult || [];
-        const projectNamespaces = Array.isArray(namespaces) 
-          ? namespaces.filter(n => n.startsWith("project-"))
-          : [];
-        console.log(`[Memory Browse] Found ${projectNamespaces.length} project namespaces.`);
+        
+        // Handle varying response formats from Turbopuffer SDK
+        let discoveredNamespaces: string[] = [];
+        if (Array.isArray(namespacesResult)) {
+          discoveredNamespaces = namespacesResult;
+        } else if (namespacesResult && typeof namespacesResult === 'object') {
+          discoveredNamespaces = (namespacesResult as any).namespaces || Object.keys(namespacesResult) || [];
+        }
 
-        // Sample from each project (up to 5 projects to avoid overwhelming the graph)
-        for (const nsName of projectNamespaces.slice(0, 5)) {
+        const projectNamespaces = discoveredNamespaces.filter(n => typeof n === 'string' && n.startsWith("project-"));
+        console.log(`[Memory Browse] Found ${projectNamespaces.length} total namespaces, ${projectNamespaces.length} project namespaces.`);
+
+        // Sample from each project (up to 15 projects to ensure better coverage)
+        for (const nsName of projectNamespaces.slice(0, 15)) {
           const rows = await queryNamespace(nsName, 10);
           nodes.push(...rows.map((r: any, idx: number) => ({
             id: r.id || `${nsName}_${idx}`,

@@ -2250,74 +2250,7 @@ export default function App() {
   const [variants, setVariants] = useState<any[]>([]);
   
   // Neural analysis state
-  const [neuralInsights, setNeuralInsights] = useState<NeuralInsights | null>({
-    "summary": {
-        "overall_score": 77,
-        "grade": "B+",
-        "quality": "Good",
-        "diagnosis": "Solid engagement with creative, emotional resonance but requires stronger call-to-action hooks."
-    },
-    "category_breakdown": [
-      { "label": "Auditory & Language", "score": 78, "grade": "B+", "description": "Speech comprehension and word meaning impact" },
-      { "label": "Executive & Motor", "score": 78, "grade": "B+", "description": "Active thinking and action impulse" },
-      { "label": "Attention & Spatial", "score": 79, "grade": "B+", "description": "Sustained focus and spatial engagement" },
-      { "label": "Visual Processing", "score": 74, "grade": "B", "description": "Visual capture and motion attention" },
-      { "label": "Emotion & Decision", "score": 78, "grade": "B+", "description": "Emotional resonance and persuasion" }
-    ],
-    "engagement_profile": {
-      "auditory": 78,
-      "executive": 78,
-      "attention": 79,
-      "visual": 74,
-      "emotion": 78
-    },
-    "engagement_timeline": Array.from({ length: 16 }, (_, i) => ({
-      second: i + 1,
-      score: 0.1 + Math.random() * 0.05,
-      level: i < 5 ? "Mid" : i < 12 ? "High" : "Low"
-    })),
-    "peak_engagement": { "second": 16, "score": 0.1576 },
-    "brain_laterality": {
-      "left": 0.05152,
-      "right": 0.06346,
-      "dominant": "Right Brain",
-      "description": "Right-brain dominant — engages creative, emotional, and spatial processing."
-    },
-    "predictive_metrics": {
-      "watch_through_rate": 95,
-      "ad_recall_24hr": 70,
-      "purchase_intent": 67,
-      "virality": 69,
-      "cognitive_load": 78,
-      "optimal_length": 16,
-      "best_fit": "Informational"
-    },
-    "key_findings": "Strongest signal: Auditory & Language (B+). The message is the primary engagement driver.",
-    "weaknesses": [
-        "Friction in cognitive load during mid-section transitions.",
-        "Visual attention capture (B) lags behind auditory engagement.",
-        "Call-to-action clarity could be improved for higher purchase intent."
-    ],
-    "actions": [
-        "Front-load visual hooks to match strong auditory start.",
-        "Simplify technical language to reduce cognitive load in the second half.",
-        "Strengthen the CTA with a clearer 'Try today' directive."
-    ],
-    "strategic_plan": [
-        "Scale and Distribute: Neural engagement is exceptionally well-balanced. Lock in for A/B testing."
-    ],
-    "winner": {
-        "dominant_signal": "intent",
-        "name": "Variant 1",
-        "reason": "Highest neural engagement across auditory and emotional markers."
-    },
-    "_raw": [
-        {
-            "variantName": "Variant 1",
-            "tribeMarkdown": "Analysis failed: TRIBE v2 Analysis Timeout (Simulated with Thinking Mode)"
-        }
-    ]
-  } as any);
+  const [neuralInsights, setNeuralInsights] = useState<NeuralInsights | null>(null);
   const [isNeuralLoading, setIsNeuralLoading] = useState(false);
   const [analyzingVariantId, setAnalyzingVariantId] = useState<string | null>(null);
   
